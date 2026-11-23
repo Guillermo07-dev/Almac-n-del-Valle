@@ -1,0 +1,31 @@
+{# Cómo pagar un pedido que está pendiente: datos de la cuenta (transferencia) o cupón de pago (efectivo).
+   Recibe pedido, pago, transferencia, codigo_barras y vence_cupon. #}
+{% if pago.estado == 'pendiente' and pedido.estado == 'pendiente_pago' %}
+  {% if pago.metodo == 'transferencia' %}
+  <div class="pay-box">
+    <h3> Datos para transferir</h3>
+    <div class="cd-row"><span>Importe exacto</span><span class="mono"><b>${{ pedido.total|arm }}</b></span></div>
+    {% if transferencia.banco %}<div class="cd-row"><span>Banco</span><span>{{ transferencia.banco }}</span></div>{% endif %}
+    <div class="cd-row"><span>Titular</span><span>{{ transferencia.titular }}</span></div>
+    {% if transferencia.cuit %}<div class="cd-row"><span>CUIT</span><span class="mono">{{ transferencia.cuit }}</span></div>{% endif %}
+    {% if transferencia.cbu %}<div class="cd-row"><span>CBU</span><span class="mono copiable">{{ transferencia.cbu }}</span></div>{% endif %}
+    {% if transferencia.alias %}<div class="cd-row"><span>Alias</span><span class="mono copiable">{{ transferencia.alias }}</span></div>{% endif %}
+    <div class="cd-row"><span>Referencia</span><span class="mono">Pedido #{{ pedido.id }}</span></div>
+    <p class="pay-note">Transferí el importe exacto y poné <b>Pedido #{{ pedido.id }}</b> como referencia. Cuando acreditemos el pago, tu pedido pasa a preparación y te mandamos la factura.</p>
+    {% if not transferencia.cargados %}<p class="pay-note" style="color:var(--rojo)">Estos datos son de ejemplo: el local todavía no cargó su cuenta. No transfieras hasta confirmarla con el negocio.</p>{% endif %}
+  </div>
+  {% elif pago.metodo == 'efectivo' %}
+  <div class="pay-box">
+    <h3> Cupón de pago — Rapipago / Pago Fácil</h3>
+    <div class="barcode" role="img" aria-label="Código de barras del cupón">{{ codigo_barras|safe }}</div>
+    <div class="cupon-code mono">{{ pago.referencia }}</div>
+    <div class="cd-row"><span>Importe a pagar</span><span class="mono"><b>${{ pedido.total|arm }}</b></span></div>
+    <div class="cd-row"><span>Vence</span><span>{{ vence_cupon.strftime('%d/%m/%Y %H:%M') }}</span></div>
+    <p class="pay-note">Presentá este código en cualquier sucursal de Rapipago o Pago Fácil y pagá el importe en efectivo. Cuando el local confirme el cobro, tu pedido pasa a preparación.</p>
+    <div class="factura-btn-row">
+      <a class="btn-pill btn-primary" href="{{ url_for('cupon_de_pago_pdf', pedido_id=pedido.id) }}">⬇️ Descargar cupón (PDF)</a>
+      <a class="btn-pill btn-outline" href="{{ url_for('cupon_de_pago', pedido_id=pedido.id) }}" target="_blank">🖨️ Ver e imprimir</a>
+    </div>
+  </div>
+  {% endif %}
+{% endif %}

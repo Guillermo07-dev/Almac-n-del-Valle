@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}Error del servidor{% endblock %}
+{% block content %}
+<section class="section" style="text-align:center; padding:100px 0">
+  <div style="font-size:60px">⚠️</div>
+  <h2>Ocurrió un error</h2>
+  <p class="sub">Estamos trabajando para solucionarlo. Probá de nuevo en un momento.</p>
+  <a class="btn-pill btn-primary" href="{{ url_for('index') }}">Volver a la tienda</a>
+</section>
+{% endblock %}

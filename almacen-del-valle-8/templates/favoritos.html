@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Mis favoritos — Almacén del Valle{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="section-head"><div><h2>Mis favoritos </h2><div class="sub">Productos que guardaste para más tarde</div></div></div>
+
+    {% if not productos %}
+    <p class="pay-note">Todavía no agregaste productos a favoritos. <a href="{{ url_for('index') }}">Ir a la tienda</a></p>
+    {% else %}
+    <div class="prod-grid">
+      {% for p in productos %}
+      <div class="prod-card">
+        <a href="{{ url_for('producto_detalle', product_id=p.id) }}" style="text-decoration:none;color:inherit">
+          <div class="prod-thumb" style="{{ 'background-image:url(' ~ p.image ~ ')' if p.image else 'background:' ~ cat_colors.get(p.category_id, '#EEF6F1') }}">
+            {% if not p.image %}{{ p.icon }}{% endif %}
+          </div>
+          <div class="prod-brand">{{ p.brand }}</div>
+          <div class="prod-name">{{ p.name }}</div>
+        </a>
+        <div class="prod-bottom">
+          <div class="price">${{ p.price|arm }}</div>
+          <div class="prod-add-row">
+            <button class="add-btn" onclick="addToCart('{{ p.id }}', this)" {% if p.stock<=0 %}disabled{% endif %}>🧺 Agregar</button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

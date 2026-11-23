@@ -1,0 +1,23 @@
+{# Línea de tiempo vertical del seguimiento de un pedido.
+   Recibe "timeline", que arma linea_de_tiempo() en app.py. #}
+<ol class="tl">
+  {% for paso in timeline.pasos %}
+  <li class="tl-item {{ paso.clase }}">
+    <div class="tl-dot">{{ '✓' if paso.clase == 'done' else loop.index }}</div>
+    <div>
+      <div class="tl-title">{{ paso.titulo }}</div>
+      <div class="tl-detail">{{ paso.detalle }}</div>
+      {% if paso.fecha %}<div class="tl-date">{{ paso.fecha }}</div>{% endif %}
+    </div>
+  </li>
+  {% endfor %}
+  {% if timeline.cancelado %}
+  <li class="tl-item cancelled">
+    <div class="tl-dot">✕</div>
+    <div>
+      <div class="tl-title">Pedido cancelado</div>
+      {% if timeline.cancelado_fecha %}<div class="tl-date">{{ timeline.cancelado_fecha }}</div>{% endif %}
+    </div>
+  </li>
+  {% endif %}
+</ol>

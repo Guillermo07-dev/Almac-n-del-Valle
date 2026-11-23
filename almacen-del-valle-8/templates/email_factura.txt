@@ -1,0 +1,35 @@
+{#- Versión en texto plano del correo de la factura, para clientes de correo que no muestran HTML. -#}
+Hola {{ cliente.nombre }},
+
+Confirmamos el pago de tu pedido. Esta es la factura de tu compra (también va adjunta en PDF).
+
+FACTURA {{ factura.tipo }} N° {{ factura.numero }}
+Fecha: {{ factura.created_at }}
+Pedido: #{{ pedido.id }}
+{% if medio_pago %}Medio de pago: {{ medio_pago }}
+{% endif %}{% if referencia_pago %}Referencia de pago: {{ referencia_pago }}
+{% endif %}
+DATOS DEL CLIENTE
+Nombre: {{ cliente.nombre }} {{ cliente.apellido }}
+DNI: {{ factura.cliente_dni or 'No informado' }}
+Correo: {{ factura.cliente_email }}
+{% if cliente.telefono %}Teléfono: {{ cliente.telefono }}
+{% endif %}Entrega: {% if pedido.metodo_entrega == 'retiro' %}Retiro en sucursal{% else %}Envío a domicilio{% if pedido.direccion_envio %}: {{ pedido.direccion_envio }}{% endif %}{% endif %}
+
+DETALLE DE LA COMPRA
+{% for it in items -%}
+- {{ it.product_name }}
+  {{ it.qty }} x ${{ it.product_price|arm2 }} = ${{ it.subtotal|arm2 }}
+{% endfor %}
+Productos (IVA incluido): ${{ resumen.productos|arm2 }}
+{% if resumen.descuento %}Descuento{% if resumen.cupon %} (cupón {{ resumen.cupon }}){% endif %}: -${{ resumen.descuento|arm2 }}
+{% endif %}Envío: {% if resumen.envio %}${{ resumen.envio|arm2 }}{% else %}Sin cargo{% endif %}
+
+TOTAL: ${{ resumen.total|arm2 }}
+{% if resumen.discrimina_iva %}Subtotal sin IVA (neto gravado): ${{ resumen.neto|arm2 }}
+IVA {{ resumen.iva_porc }}%: ${{ resumen.iva|arm2 }}
+{% endif %}{% if factura.cae %}
+CAE N°: {{ factura.cae }} (vence el {{ factura.cae_vencimiento }})
+{% if factura.modo_arca == 'demo' %}Comprobante de demostración, sin validez fiscal.
+{% endif %}{% endif %}
+Gracias por comprar en Almacén del Valle.

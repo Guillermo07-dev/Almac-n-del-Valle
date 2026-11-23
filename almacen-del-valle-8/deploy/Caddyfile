@@ -1,0 +1,8 @@
+# Caddy obtiene y renueva solo el certificado SSL gratuito (Let's Encrypt)
+# y redirige automáticamente HTTP a HTTPS.
+#
+# Reemplazá "tudominio.com.ar" por el dominio real, que debe apuntar a la IP del servidor.
+tudominio.com.ar {
+    encode gzip
+    reverse_proxy 127.0.0.1:8000
+}

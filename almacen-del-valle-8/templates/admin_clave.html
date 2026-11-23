@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contraseña del panel — Almacén del Valle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css', v=version_estaticos()) }}">
+</head>
+<body class="login-body">
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">AV</div>
+    {% if modo == 'pedir' %}
+    <h2>Recuperar contraseña</h2>
+    <p class="sub">Escribí tu usuario y te enviamos un enlace al correo registrado.</p>
+    {% elif modo == 'nueva' %}
+    <h2>Contraseña nueva</h2>
+    <p class="sub">Elegí una contraseña de al menos 6 caracteres.</p>
+    {% else %}
+    <h2>Enlace vencido</h2>
+    <p class="sub">El enlace sirve una sola vez y dura una hora. Pedí uno nuevo.</p>
+    {% endif %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+      <div class="flash-msg {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+    {% if modo == 'pedir' %}
+    <form method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field"><label>Usuario</label><input type="text" name="usuario" required></div>
+      <button class="login-btn" type="submit">Enviarme el enlace</button>
+    </form>
+    {% elif modo == 'nueva' %}
+    <form method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field"><label>Contraseña nueva</label><input type="password" name="password" required minlength="6" autocomplete="new-password"></div>
+      <div class="field"><label>Repetí la contraseña</label><input type="password" name="password2" required minlength="6" autocomplete="new-password"></div>
+      <button class="login-btn" type="submit">Guardar contraseña</button>
+    </form>
+    {% else %}
+    <a class="login-btn" style="display:block;text-align:center;text-decoration:none" href="{{ url_for('admin_recuperar_clave') }}">Pedir otro enlace</a>
+    {% endif %}
+    <div class="login-hint"><a href="{{ url_for('admin_login') }}">Volver a ingresar</a></div>
+  </div>
+</div>
+</body>
+</html>

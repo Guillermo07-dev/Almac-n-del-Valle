@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Factura {{ factura.numero }}</title>
+</head>
+{# Correo de la factura. Usa tablas y estilos en línea porque la mayoría de los clientes de correo no soportan CSS externo. #}
+<body style="margin:0; padding:0; background:#F5F7F2; font-family:Arial, Helvetica, sans-serif; color:#1C2B24;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F7F2; padding:24px 0;">
+  <tr><td align="center">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%; max-width:600px; background:#FFFFFF; border-radius:8px; overflow:hidden;">
+
+      <tr><td style="background:#16493D; color:#FFFFFF; padding:22px 28px;">
+        <div style="font-size:22px; font-weight:bold;">Almacén del Valle</div>
+        <div style="font-size:13px; opacity:.85; margin-top:4px;">Factura de tu compra</div>
+      </td></tr>
+
+      <tr><td style="padding:28px 28px 8px;">
+        <p style="margin:0 0 10px; font-size:16px;">Hola {{ cliente.nombre }},</p>
+        <p style="margin:0; font-size:14px; line-height:1.5; color:#3F5147;">
+          Confirmamos el pago de tu pedido. Te dejamos el detalle de tu compra; la factura también va adjunta en PDF.
+        </p>
+      </td></tr>
+
+      <tr><td style="padding:20px 28px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px; color:#3F5147;">
+          <tr>
+            <td style="padding:2px 0;"><b style="color:#1C2B24;">Factura {{ factura.tipo }}</b> N° {{ factura.numero }}</td>
+            <td align="right" style="padding:2px 0;">Fecha: {{ factura.created_at }}</td>
+          </tr>
+          <tr>
+            <td style="padding:2px 0;">Pedido #{{ pedido.id }}</td>
+            <td align="right" style="padding:2px 0;">
+              {% if medio_pago %}Pago: {{ medio_pago }}{% endif %}
+            </td>
+          </tr>
+          {% if referencia_pago %}
+          <tr><td colspan="2" style="padding:2px 0;">Referencia de pago: {{ referencia_pago }}</td></tr>
+          {% endif %}
+        </table>
+      </td></tr>
+
+      <tr><td style="padding:22px 28px 0;">
+        <div style="font-size:12px; font-weight:bold; letter-spacing:.04em; text-transform:uppercase; color:#16493D; border-bottom:2px solid #16493D; padding-bottom:6px;">Datos del cliente</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13.5px; margin-top:8px;">
+          <tr><td width="130" style="padding:3px 0; color:#5B6D63;">Nombre</td><td style="padding:3px 0;">{{ cliente.nombre }} {{ cliente.apellido }}</td></tr>
+          <tr><td style="padding:3px 0; color:#5B6D63;">DNI</td><td style="padding:3px 0;">{{ factura.cliente_dni or 'No informado' }}</td></tr>
+          <tr><td style="padding:3px 0; color:#5B6D63;">Correo</td><td style="padding:3px 0;">{{ factura.cliente_email }}</td></tr>
+          {% if cliente.telefono %}
+          <tr><td style="padding:3px 0; color:#5B6D63;">Teléfono</td><td style="padding:3px 0;">{{ cliente.telefono }}</td></tr>
+          {% endif %}
+          <tr>
+            <td style="padding:3px 0; color:#5B6D63;">Entrega</td>
+            <td style="padding:3px 0;">
+              {% if pedido.metodo_entrega == 'retiro' %}Retiro en sucursal
+              {%- else %}Envío a domicilio{% if pedido.direccion_envio %}: {{ pedido.direccion_envio }}{% endif %}
+              {%- endif %}
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+
+      <tr><td style="padding:22px 28px 0;">
+        <div style="font-size:12px; font-weight:bold; letter-spacing:.04em; text-transform:uppercase; color:#16493D; border-bottom:2px solid #16493D; padding-bottom:6px;">Detalle de la compra</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13.5px; margin-top:6px;">
+          <tr style="color:#5B6D63; font-size:12px;">
+            <td style="padding:6px 0;">Producto</td>
+            <td align="center" style="padding:6px 0;">Cant.</td>
+            <td align="right" style="padding:6px 0;">Precio unit.</td>
+            <td align="right" style="padding:6px 0;">Subtotal</td>
+          </tr>
+          {% for it in items %}
+          <tr>
+            <td style="padding:8px 0; border-top:1px solid #E3EAE3;">{{ it.product_name }}</td>
+            <td align="center" style="padding:8px 0; border-top:1px solid #E3EAE3;">{{ it.qty }}</td>
+            <td align="right" style="padding:8px 0; border-top:1px solid #E3EAE3;">${{ it.product_price|arm2 }}</td>
+            <td align="right" style="padding:8px 0; border-top:1px solid #E3EAE3;">${{ it.subtotal|arm2 }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </td></tr>
+
+      <tr><td style="padding:14px 28px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13.5px; border-top:1px solid #E3EAE3;">
+          <tr>
+            <td style="padding:6px 0;">Productos (IVA incluido)</td>
+            <td align="right" style="padding:6px 0;">${{ resumen.productos|arm2 }}</td>
+          </tr>
+          {% if resumen.descuento %}
+          <tr>
+            <td style="padding:6px 0;">Descuento{% if resumen.cupon %} (cupón {{ resumen.cupon }}){% endif %}</td>
+            <td align="right" style="padding:6px 0;">-${{ resumen.descuento|arm2 }}</td>
+          </tr>
+          {% endif %}
+          <tr>
+            <td style="padding:6px 0;">Envío</td>
+            <td align="right" style="padding:6px 0;">{% if resumen.envio %}${{ resumen.envio|arm2 }}{% else %}Sin cargo{% endif %}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0 6px; border-top:2px solid #16493D; font-size:16px; font-weight:bold; color:#16493D;">Total</td>
+            <td align="right" style="padding:10px 0 6px; border-top:2px solid #16493D; font-size:16px; font-weight:bold; color:#16493D;">${{ resumen.total|arm2 }}</td>
+          </tr>
+          {% if resumen.discrimina_iva %}
+          <tr style="color:#5B6D63; font-size:12.5px;">
+            <td style="padding:3px 0;">Subtotal sin IVA (neto gravado)</td>
+            <td align="right" style="padding:3px 0;">${{ resumen.neto|arm2 }}</td>
+          </tr>
+          <tr style="color:#5B6D63; font-size:12.5px;">
+            <td style="padding:3px 0;">IVA {{ resumen.iva_porc }}%</td>
+            <td align="right" style="padding:3px 0;">${{ resumen.iva|arm2 }}</td>
+          </tr>
+          {% endif %}
+          {% if factura.cae %}
+          <tr style="color:#5B6D63; font-size:12.5px;">
+            <td colspan="2" style="padding:10px 0 0;">CAE N° {{ factura.cae }} (vence el {{ factura.cae_vencimiento }}){% if factura.modo_arca == 'demo' %}<br><b style="color:#B3261E;">Comprobante de demostración, sin validez fiscal.</b>{% endif %}</td>
+          </tr>
+          {% endif %}
+        </table>
+      </td></tr>
+
+      <tr><td style="padding:28px; font-size:12.5px; color:#5B6D63; line-height:1.5;">
+        Gracias por comprar en Almacén del Valle.<br>
+        {% if direcciones_negocio %}{{ direcciones_negocio[0].direccion }}{% if direcciones_negocio[0].ciudad %}, {{ direcciones_negocio[0].ciudad }}{% endif %}{% endif %}
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

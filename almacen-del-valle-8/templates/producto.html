@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% block title %}{{ p.name }} — Almacén del Valle{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <a href="{{ url_for('index') }}" class="breadcrumb-back">← Volver a la tienda</a>
+
+    <div class="pd-grid">
+      <div class="pd-image" style="{{ 'background-image:url(' ~ p.image ~ ')' if p.image else 'background:' ~ (p.category_color or '#EEF6F1') }}">
+        {% if not p.image %}<span class="pd-icon">{{ p.icon }}</span>{% endif %}
+        {% if p.old_price %}<span class="prod-tag pd-tag">-{{ ((1 - p.price / p.old_price) * 100)|round|int }}%</span>{% endif %}
+        {% if p.destacado %}<span class="prod-star pd-star"> Destacado</span>{% endif %}
+      </div>
+
+      <div class="pd-info">
+        <div class="prod-brand">{{ p.brand }}</div>
+        <h1>{{ p.name }}</h1>
+        <div class="pd-rating">
+          {% if resenas %}
+          <span class="stars">{{ '★' * (promedio|round|int) }}{{ '☆' * (5 - (promedio|round|int)) }}</span>
+          <span class="pd-rating-txt">{{ promedio }} ({{ resenas|length }} reseña{{ 's' if resenas|length != 1 else '' }})</span>
+          {% else %}
+          <span class="pd-rating-txt">Todavía no tiene reseñas</span>
+          {% endif %}
+        </div>
+
+        <div class="pd-price">
+          {% if p.old_price %}<span class="old">${{ p.old_price|arm }}</span>{% endif %}
+          ${{ p.price|arm }} <span class="pd-unit">/ {{ p.unidad }}</span>
+        </div>
+
+        {% if p.description %}<p class="pd-desc">{{ p.description }}</p>{% endif %}
+
+        {% if p.info_adicional %}
+        <ul class="pd-tags">
+          {% for info in p.info_adicional|infolist %}
+          <li>✓ {{ info }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        <div class="pd-stock">{% if p.stock > 0 %} Stock disponible ({{ p.stock }}){% else %}⛔ Sin stock{% endif %}</div>
+
+        <div class="pd-actions">
+          <div class="prod-stepper pd-stepper">
+            <button type="button" onclick="stepQty('{{ p.id }}', -1)">–</button>
+            <span class="qv" id="qty-{{ p.id }}">1</span>
+            <button type="button" onclick="stepQty('{{ p.id }}', 1, {{ p.stock }})">+</button>
+          </div>
+          <button class="add-btn pd-add" onclick="addToCart('{{ p.id }}', this)" {% if p.stock<=0 %}disabled{% endif %}>
+            {% if p.stock<=0 %}Sin stock{% else %}🧺 Agregar al carrito{% endif %}
+          </button>
+          <button class="fav-btn {{ 'active' if es_favorito else '' }}" id="favBtn" onclick="toggleFavorito('{{ p.id }}')" title="Agregar a favoritos">
+            {{ '❤️' if es_favorito else '🤍' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="pd-reviews">
+      <h2>Reseñas de clientes</h2>
+
+      {% if session.get('cliente_id') %}
+      <form method="POST" action="{{ url_for('producto_resena', product_id=p.id) }}" class="review-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-row">
+          <label>Tu calificación</label>
+          <select name="estrellas" required>
+            <option value="5">★★★★★ Excelente</option>
+            <option value="4">★★★★☆ Muy bueno</option>
+            <option value="3">★★★☆☆ Bueno</option>
+            <option value="2">★★☆☆☆ Regular</option>
+            <option value="1">★☆☆☆☆ Malo</option>
+          </select>
+        </div>
+        <div class="form-row"><label>Comentario (opcional)</label><input type="text" name="comentario" placeholder="Contanos qué te pareció..."></div>
+        <button class="btn-pill btn-primary" type="submit">Publicar reseña</button>
+      </form>
+      {% else %}
+      <p class="pay-note"><a href="{{ url_for('login') }}">Iniciá sesión</a> para dejar tu reseña.</p>
+      {% endif %}
+
+      <div class="review-list">
+        {% for r in resenas %}
+        <div class="review-item">
+          <div class="review-head">
+            <b>{{ r.cliente_nombre }}</b>
+            <span class="stars">{{ '★' * r.estrellas }}{{ '☆' * (5 - r.estrellas) }}</span>
+            <span class="review-date">{{ r.created_at[:10] }}</span>
+          </div>
+          {% if r.comentario %}<p>{{ r.comentario }}</p>{% endif %}
+        </div>
+        {% else %}
+        <p class="pay-note">Sé el primero en dejar una reseña.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% if tambien_compraron %}
+    <div class="section-head" style="margin-top:48px">
+      <div><h2>También compraron</h2><div class="sub">Productos que suelen llevarse juntos</div></div>
+    </div>
+    <div class="prod-grid">
+      {% for tp in tambien_compraron %}
+      <a class="prod-card" href="{{ url_for('producto_detalle', product_id=tp.id) }}" style="text-decoration:none;color:inherit">
+        <div class="prod-thumb" style="{{ 'background-image:url(' ~ tp.image ~ ')' if tp.image else 'background:' ~ cat_colors.get(tp.category_id, '#EEF6F1') }}">
+          {% if not tp.image %}{{ tp.icon }}{% endif %}
+        </div>
+        <div class="prod-brand">{{ tp.brand }}</div>
+        <div class="prod-name">{{ tp.name }}</div>
+        <div class="price">${{ tp.price|arm }}</div>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

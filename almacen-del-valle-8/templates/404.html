@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}Página no encontrada{% endblock %}
+{% block content %}
+<section class="section" style="text-align:center; padding:100px 0">
+  <div style="font-size:60px">🧺</div>
+  <h2>Página no encontrada</h2>
+  <p class="sub">Lo que buscás no está en esta góndola.</p>
+  <a class="btn-pill btn-primary" href="{{ url_for('index') }}">Volver a la tienda</a>
+</section>
+{% endblock %}

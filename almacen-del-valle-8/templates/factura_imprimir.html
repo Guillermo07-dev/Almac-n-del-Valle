@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Factura {{ factura.numero }} — Almacén del Valle</title>
+<style>
+  @page{ size:A4; margin:1.5cm; }
+  *{box-sizing:border-box;}
+  body{
+    font-family:'Segoe UI', Arial, sans-serif; color:#1C2B24; margin:0; padding:32px;
+    max-width:760px; margin:0 auto;
+  }
+  .no-print{margin-bottom:24px; display:flex; gap:10px; justify-content:flex-end;}
+  .no-print button{
+    padding:10px 18px; border-radius:10px; border:1px solid #DEE6DE; background:#EEF6F1;
+    font-weight:700; font-size:13px; cursor:pointer; color:#1C2B24;
+  }
+  .no-print button.primary{background:#1F6F5C; color:#fff; border:none;}
+  header{display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #16493D; padding-bottom:16px; margin-bottom:24px;}
+  header h1{font-size:22px; color:#16493D; margin:0 0 4px;}
+  header p{margin:0; font-size:12.5px; color:#5B6D63;}
+  .factura-meta{text-align:right; font-size:12.5px;}
+  .factura-meta .num{font-size:16px; font-weight:800; color:#16493D;}
+  .info-row{display:flex; justify-content:space-between; margin-bottom:22px; font-size:13px;}
+  .info-row div{flex:1;}
+  .info-row b{display:block; color:#5B6D63; font-size:11px; text-transform:uppercase; letter-spacing:.03em; margin-bottom:3px;}
+  table{width:100%; border-collapse:collapse; margin-bottom:20px;}
+  th{background:#16493D; color:#fff; font-size:11.5px; text-transform:uppercase; padding:10px; text-align:left;}
+  th.num, td.num{text-align:right;}
+  td{padding:10px; border-bottom:1px solid #DEE6DE; font-size:13px;}
+  tfoot td{border-bottom:none; font-weight:700;}
+  tfoot tr.total td{font-size:16px; color:#16493D; border-top:2px solid #16493D; padding-top:14px;}
+  tfoot tr.iva td{font-weight:400; font-size:12px; color:#5B6D63; padding-top:4px; padding-bottom:4px;}
+  footer{margin-top:36px; text-align:center; font-size:11.5px; color:#5B6D63; font-style:italic;}
+
+  @media print{
+    .no-print{display:none;}
+    body{padding:0;}
+  }
+</style>
+</head>
+<body>
+
+<div class="no-print">
+  <button onclick="window.print()"> Imprimir de nuevo</button>
+  <button class="primary" onclick="window.close()">Cerrar</button>
+</div>
+
+<header>
+  <div>
+    <h1>Almacén del Valle</h1>
+    <p>{% if direcciones_negocio %}{{ direcciones_negocio[0].direccion }}<br>{{ direcciones_negocio[0].ciudad }} — {{ direcciones_negocio[0].provincia }}{% else %}25 de Mayo — Misiones{% endif %}</p>
+  </div>
+  <div class="factura-meta">
+    <div class="num">Factura {{ factura.tipo }} N° {{ factura.numero }}</div>
+    <p>Fecha: {{ factura.created_at }}</p>
+    <p>Pedido #{{ pedido.id }}</p>
+  </div>
+</header>
+
+<div class="info-row">
+  <div><b>Cliente</b>{{ factura.cliente_nombre }}</div>
+  <div><b>Correo</b>{{ factura.cliente_email }}</div>
+  <div><b>DNI</b>{{ factura.cliente_dni or '-' }}</div>
+</div>
+
+<table>
+  <thead>
+    <tr><th>Producto</th><th class="num">Cant.</th><th class="num">Precio unit.</th><th class="num">Subtotal</th></tr>
+  </thead>
+  <tbody>
+    {% for it in items %}
+    <tr>
+      <td>{{ it.product_name }}</td>
+      <td class="num">{{ it.qty }}</td>
+      <td class="num">${{ it.product_price|arm2 }}</td>
+      <td class="num">${{ it.subtotal|arm2 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr><td colspan="3">Productos (IVA incluido)</td><td class="num">${{ resumen.productos|arm2 }}</td></tr>
+    {% if resumen.descuento %}
+    <tr><td colspan="3">Descuento {{ resumen.cupon }}</td><td class="num">-${{ resumen.descuento|arm2 }}</td></tr>
+    {% endif %}
+    <tr><td colspan="3">Envío</td><td class="num">${{ resumen.envio|arm2 }}</td></tr>
+    <tr class="total"><td colspan="3">TOTAL</td><td class="num">${{ resumen.total|arm2 }}</td></tr>
+    {% if resumen.discrimina_iva %}
+    <tr class="iva"><td colspan="3">Subtotal sin IVA (neto gravado)</td><td class="num">${{ resumen.neto|arm2 }}</td></tr>
+    <tr class="iva"><td colspan="3">IVA {{ resumen.iva_porc }}%</td><td class="num">${{ resumen.iva|arm2 }}</td></tr>
+    {% endif %}
+  </tfoot>
+</table>
+
+{% if factura.cae %}
+<p style="font-size:12.5px; margin:0 0 6px"><b>CAE N°:</b> {{ factura.cae }} &nbsp; <b>Vencimiento del CAE:</b> {{ factura.cae_vencimiento }} &nbsp; <b>Punto de venta:</b> {{ '%04d'|format(factura.punto_venta) }}</p>
+{% if factura.modo_arca == 'demo' %}<p style="font-size:12px; color:#B3261E; margin:0"><b>Comprobante de demostración, sin validez fiscal.</b></p>{% endif %}
+{% endif %}
+
+<footer>Gracias por tu compra en Almacén del Valle.</footer>
+
+<script>
+  window.onload = function(){
+    window.print();
+  };
+  window.onafterprint = function(){
+    window.close();
+  };
+</script>
+
+</body>
+</html>

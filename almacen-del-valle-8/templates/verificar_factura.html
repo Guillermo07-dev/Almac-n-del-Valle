@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Verificar factura {{ factura.numero }} — Almacén del Valle{% endblock %}
+{% block content %}
+<section class="section auth-section">
+  <div class="container auth-container">
+    <div class="auth-card">
+      {% if factura.modo_arca == 'demo' %}
+      <div class="flash-msg error" style="margin-bottom:16px"><b>Comprobante de demostración.</b> Esta factura es de prueba y no tiene validez fiscal.</div>
+      {% endif %}
+      <div class="eyebrow">Verificación de comprobante</div>
+      <h2>Factura {{ factura.tipo }} N° {{ factura.numero }}</h2>
+      <p class="sub">Los datos de abajo coinciden con el comprobante emitido por {{ emisor.razon_social }}.</p>
+      <table style="width:100%; font-size:14px; border-collapse:collapse">
+        <tr><td style="padding:6px 0; color:var(--text-soft)">Fecha de emisión</td><td style="text-align:right">{{ factura.created_at[:10] }}</td></tr>
+        <tr><td style="padding:6px 0; color:var(--text-soft)">Importe total</td><td style="text-align:right"><b>${{ factura.total|arm2 }}</b></td></tr>
+        <tr><td style="padding:6px 0; color:var(--text-soft)">Punto de venta</td><td style="text-align:right">{{ '%04d'|format(factura.punto_venta) }}</td></tr>
+        {% if emisor.cuit %}<tr><td style="padding:6px 0; color:var(--text-soft)">CUIT del emisor</td><td style="text-align:right">{{ emisor.cuit }}</td></tr>{% endif %}
+        <tr><td style="padding:6px 0; color:var(--text-soft)">CAE N°</td><td style="text-align:right" class="mono">{{ factura.cae or 'Sin CAE' }}</td></tr>
+        {% if factura.cae_vencimiento %}<tr><td style="padding:6px 0; color:var(--text-soft)">Vencimiento del CAE</td><td style="text-align:right">{{ factura.cae_vencimiento }}</td></tr>{% endif %}
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

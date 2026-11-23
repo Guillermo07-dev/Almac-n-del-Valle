@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Ingresar — Almacén del Valle{% endblock %}
+{% block content %}
+<section class="section auth-section">
+  <div class="container auth-container">
+    <div class="auth-card">
+      <div class="eyebrow">Bienvenido de nuevo</div>
+      <h2>Ingresá a tu cuenta</h2>
+      <p class="sub">Iniciá sesión para ver tu carrito y finalizar tu compra.</p>
+      <form method="POST" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field">
+          <label>Correo electrónico o DNI</label>
+          <input type="text" name="identificador" placeholder="tu@correo.com o 12345678" autocomplete="username" required>
+        </div>
+        <div class="field"><label>Contraseña</label><input type="password" name="password" required></div>
+        <button class="btn-pill btn-primary" type="submit" style="width:100%;justify-content:center">Ingresar</button>
+      </form>
+      {% if sin_confirmar %}
+      <form method="POST" action="{{ url_for('reenviar_confirmacion') }}" class="auth-alt"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="identificador" value="{{ sin_confirmar }}">
+        <button class="btn-pill btn-ghost" type="submit" style="width:100%;justify-content:center">Reenviar el correo de activación</button>
+      </form>
+      {% endif %}
+      <p class="auth-alt"><a href="{{ url_for('recuperar_clave') }}">¿Olvidaste tu contraseña?</a></p>
+      <p class="auth-alt" style="margin-top:6px">¿No tenés cuenta? <a href="{{ url_for('registro') }}">Creá una acá</a></p>
+    </div>
+  </div>
+</section>
+{% endblock %}

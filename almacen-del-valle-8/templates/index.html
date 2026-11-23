@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+{% block title %}Almacén del Valle — Supermercado Online{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-blob"></div>
+  <div class="hero-blob two"></div>
+  <div class="container hero-grid">
+    <div>
+      <div class="eyebrow">Cosecha de la semana</div>
+      <h1>Lo fresco de tu <em>barrio</em>, directo a tu casa</h1>
+      <p class="lead">Frutas, verduras y almacén con precios claros. Comprá online y recibilo en tu domicilio o retiralo en el súper.</p>
+      <div class="hero-ctas">
+        <a class="btn-pill btn-primary" href="#productos">Ver ofertas 🔥</a>
+        <a class="btn-pill btn-outline" href="#categorias">Explorar categorías</a>
+      </div>
+    </div>
+    <div class="hero-card">
+      <div class="mini-stat"><div class="num">{{ products|length }}+</div><div class="lbl">Productos disponibles</div></div>
+      <div class="mini-stat accent"><div class="num">Hasta 30%</div><div class="lbl">En productos frescos</div></div>
+      <div class="mini-stat"><div class="num">24hs</div><div class="lbl">Entrega en 25 de Mayo</div></div>
+      <div class="mini-stat"><div class="num">$50.000</div><div class="lbl">Envío gratis desde</div></div>
+    </div>
+  </div>
+</section>
+
+{% if ofertas_activas %}
+<section class="giant-banner-wrap">
+  <div class="container">
+    <div class="giant-banner" id="giantBanner">
+      {% for o in ofertas_activas %}
+      <div class="gb-slide gb-{{ o.color }} {{ 'active' if loop.first else '' }}" data-slide="{{ loop.index0 }}">
+        <div class="gb-content">
+          <div class="gb-eyebrow">Oferta de la semana</div>
+          <h2>{{ o.titulo }}</h2>
+          <p>{{ o.texto }}</p>
+          {% if o.producto_nombre %}
+          <a class="btn-pill" style="background:#fff;color:var(--verde-800)" href="#productos" onclick="filterProductsByName('{{ o.producto_nombre|replace("'", "") }}'); return false;">Ver {{ o.producto_nombre }} →</a>
+          {% elif o.categoria_id %}
+          <a class="btn-pill" style="background:#fff;color:var(--verde-800)" href="#productos" onclick="setCat('{{ o.categoria_id }}')">Ver {{ o.categoria_nombre }} →</a>
+          {% else %}
+          <a class="btn-pill" style="background:#fff;color:var(--verde-800)" href="#productos">Ver ofertas →</a>
+          {% endif %}
+        </div>
+        <div class="gb-ico">{{ o.producto_icon or '🛒' }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% if ofertas_activas|length > 1 %}
+    <div class="gb-dots" id="giantBannerDots">
+      {% for o in ofertas_activas %}
+      <button class="gb-dot {{ 'active' if loop.first else '' }}" onclick="showBannerSlide({{ loop.index0 }})"></button>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+<section class="section" id="categorias">
+  <div class="container">
+    <div class="section-head">
+      <div><h2>Categorías</h2><div class="sub">Encontrá justo lo que buscás</div></div>
+    </div>
+    <div class="cat-grid">
+      {% for c in categories %}
+      <div class="cat-card" onclick="setCat('{{ c.id }}')">
+        <div class="cat-tile-img" style="background:{{ c.color }}">{{ c.icon }}</div>
+        <div class="cat-card-body">
+          <div class="cname">{{ c.name }}</div>
+          <div class="ccount">{{ products|selectattr('category_id','equalto',c.id)|list|length }} productos</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:0">
+  <div class="container">
+    <div class="promo-strip">
+      <div class="promo-banner b">
+        <div class="pb-eyebrow">Promos bancarias</div>
+        <h3>Descuentos con tu tarjeta</h3>
+        <p>Sumá reintegros y cuotas sin interés en Mercado Pago y tarjetas adheridas.</p>
+        <a class="btn-pill" style="background:#fff;color:#95600C" href="{{ url_for('checkout') if session.get('cliente_id') else url_for('login') }}">Ver medios de pago</a>
+        <div class="pb-ico"></div>
+      </div>
+      <div class="promo-banner a">
+        <div class="pb-eyebrow">Envíos</div>
+        <h3>Gratis desde $50.000</h3>
+        <p>En 25 de Mayo, comprando online y recibiendo en tu domicilio.</p>
+        <a class="btn-pill" style="background:#fff;color:var(--verde-800)" href="#productos">Ver productos</a>
+        <div class="pb-ico"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="productos" style="padding-top:0">
+  <div class="container">
+    <div class="section-head">
+      <div><h2>Ofertas de la semana</h2><div class="sub">Precios especiales, por tiempo limitado</div></div>
+    </div>
+    <div class="filter-row" id="filterRow">
+      <button class="chip active" data-cat="all" onclick="setCat('all')">Todas</button>
+      {% for c in categories %}
+      <button class="chip" data-cat="{{ c.id }}" onclick="setCat('{{ c.id }}')">{{ c.name }}</button>
+      {% endfor %}
+    </div>
+    <div class="prod-grid" id="prodGrid">
+      {% for p in products %}
+      <div class="prod-card" data-cat="{{ p.category_id }}" data-name="{{ p.name|lower }}">
+        <a href="{{ url_for('producto_detalle', product_id=p.id) }}" class="prod-link">
+          <div class="prod-thumb" style="{{ 'background-image:url(' ~ p.image ~ ')' if p.image else 'background:' ~ cat_colors.get(p.category_id, '#EEF6F1') }}">
+            {% if p.old_price %}<span class="prod-tag">-{{ ((1 - p.price / p.old_price) * 100)|round|int }}%</span>{% endif %}
+            {% if p.destacado %}<span class="prod-star">⭐</span>{% endif %}
+            {% if not p.image %}{{ p.icon }}{% endif %}
+          </div>
+          <div class="prod-brand">{{ p.brand }}</div>
+          <div class="prod-name">{{ p.name }}</div>
+        </a>
+        <div class="prod-unit">{{ p.unidad }}</div>
+        <div class="prod-bottom">
+          <div class="price">
+            {% if p.old_price %}<span class="old">${{ p.old_price|arm }}</span>{% endif %}
+            ${{ p.price|arm }}
+          </div>
+          <div class="prod-add-row">
+            <div class="prod-stepper">
+              <button type="button" onclick="stepQty('{{ p.id }}', -1)">–</button>
+              <span class="qv" id="qty-{{ p.id }}">1</span>
+              <button type="button" onclick="stepQty('{{ p.id }}', 1, {{ p.stock }})">+</button>
+            </div>
+            <button class="add-btn" onclick="addToCart('{{ p.id }}', this)" {% if p.stock<=0 %}disabled{% endif %}>
+              {% if p.stock<=0 %}Sin stock{% else %}🧺 Agregar{% endif %}
+            </button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="benefits">
+  <div class="container">
+    <div class="benefit-item">
+      <div class="ico">🚴</div>
+      <div><h4>Envío a domicilio</h4><p>Gratis en 25 de Mayo a partir de $50.000 en tu compra.</p></div>
+    </div>
+    <div class="benefit-item">
+      <div class="ico">🏬</div>
+      <div><h4>Retiro en sucursal</h4><p>Comprá online y retirá cuando quieras, sin filas.</p></div>
+    </div>
+    <div class="benefit-item">
+      <div class="ico">💳</div>
+      <div><h4>Mercado Pago y tarjetas</h4><p>Pagá como prefieras: tarjeta, transferencia o efectivo.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="info-strip">
+      <h3>Comprá online, a tu manera</h3>
+      <p>Elegí el método de envío que más te quede cómodo: retiro en sucursal o envío a domicilio, únicamente en 25 de Mayo.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:0">
+  <div class="container">
+    <div class="newsletter">
+      <div>
+        <h3>Recibí nuestras ofertas</h3>
+        <p>Enterate primero de las promos de la semana y productos nuevos.</p>
+      </div>
+      <form onsubmit="return subscribeNews(event)">
+        <input type="email" placeholder="Tu correo electrónico" required>
+        <button class="btn-pill btn-primary" type="submit">Suscribirme</button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Crear cuenta — Almacén del Valle{% endblock %}
+{% block content %}
+<section class="section auth-section">
+  <div class="container auth-container">
+    <div class="auth-card">
+      <div class="eyebrow">Sumate a Almacén del Valle</div>
+      <h2>Creá tu cuenta</h2>
+      <p class="sub">La necesitás para finalizar tu compra y ver el historial de pedidos.</p>
+      <form method="POST" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+          <div class="field"><label>Nombre</label><input type="text" name="nombre" required></div>
+          <div class="field"><label>Apellido</label><input type="text" name="apellido" required></div>
+        </div>
+        <div class="field"><label>Correo electrónico</label><input type="email" name="email" required></div>
+        <div class="field">
+          <label>DNI</label>
+          <input type="text" name="dni" inputmode="numeric" placeholder="Sin puntos, ej: 12345678" pattern="[0-9.\s]{7,10}" required>
+        </div>
+        <div class="field"><label>Teléfono</label><input type="tel" name="telefono"></div>
+        <div class="field"><label>Contraseña</label><input type="password" name="password" required minlength="6"></div>
+        <button class="btn-pill btn-primary" type="submit" style="width:100%;justify-content:center">Crear cuenta</button>
+      </form>
+      <p class="auth-alt">¿Ya tenés cuenta? <a href="{{ url_for('login') }}">Ingresá acá</a></p>
+    </div>
+  </div>
+</section>
+{% endblock %}

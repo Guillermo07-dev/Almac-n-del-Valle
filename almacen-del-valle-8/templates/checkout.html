@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block title %}Finalizar compra — Almacén del Valle{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="section-head"><div><h2>Finalizar compra</h2><div class="sub">Revisá tu pedido y elegí cómo pagar</div></div></div>
+
+    <form method="POST" action="{{ url_for('checkout_confirmar') }}" class="checkout-grid" id="checkoutForm"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="checkout-main">
+
+        <div class="card">
+          <h3>1. Entrega</h3>
+          <div class="delivery-opts">
+            <label class="radio-card">
+              <input type="radio" name="metodo_entrega" value="domicilio" checked onchange="toggleDireccion(true)">
+              <div><b>Envío a domicilio</b><span>Gratis desde $50.000, si no ${{ 2500|arm }}</span></div>
+            </label>
+            <label class="radio-card">
+              <input type="radio" name="metodo_entrega" value="retiro" onchange="toggleDireccion(false)">
+              <div><b>Retiro en sucursal</b><span>Sin costo{% if direcciones_negocio %} — {{ direcciones_negocio[0].direccion }}{% endif %}</span></div>
+            </label>
+          </div>
+          <div class="field" id="direccionField">
+            <label>Dirección de envío</label>
+            <input type="text" name="direccion" placeholder="Calle, número, barrio"
+                   value="{{ cliente.calle ~ ' ' ~ cliente.numero if cliente.calle else '' }}">
+          </div>
+          {% if permite_factura_a %}
+          <div class="field">
+            <label style="display:flex; gap:8px; align-items:center"><input type="checkbox" name="factura_a" value="1" style="width:auto" onchange="toggleFacturaA(this.checked)"> Necesito Factura A (soy Responsable Inscripto)</label>
+          </div>
+          <div id="facturaAFields" style="display:none">
+            <div class="form-grid">
+              <div class="field"><label>CUIT</label><input type="text" name="factura_a_cuit" inputmode="numeric" placeholder="30-12345678-9"></div>
+              <div class="field"><label>Razón social</label><input type="text" name="factura_a_razon"></div>
+            </div>
+          </div>
+          {% endif %}
+          {% if not cliente.dni_cuit %}
+          {# Cuentas creadas antes de pedir el DNI: se completa acá, sale en la factura y sirve para ingresar #}
+          <div class="field">
+            <label>DNI (opcional)</label>
+            <input type="text" name="dni" inputmode="numeric" placeholder="Para la factura y para ingresar con él">
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="card">
+          <h3>2. Medio de pago</h3>
+          <div class="pay-opts">
+            <label class="radio-card pay-card">
+              <input type="radio" name="metodo_pago" value="mercado_pago" checked onchange="showPayFields('mercado_pago')">
+              <div><b> Mercado Pago</b><span>Tarjetas, dinero en cuenta y más</span></div>
+            </label>
+            <label class="radio-card pay-card">
+              <input type="radio" name="metodo_pago" value="tarjeta_credito" onchange="showPayFields('tarjeta_credito')">
+              <div><b> Tarjeta de crédito</b><span>Visa, Mastercard, American Express</span></div>
+            </label>
+            <label class="radio-card pay-card">
+              <input type="radio" name="metodo_pago" value="tarjeta_debito" onchange="showPayFields('tarjeta_debito')">
+              <div><b> Tarjeta de débito</b><span>Maestro, Visa Débito</span></div>
+            </label>
+            <label class="radio-card pay-card">
+              <input type="radio" name="metodo_pago" value="transferencia" onchange="showPayFields('transferencia')">
+              <div><b> Transferencia bancaria</b><span>CBU / alias, acreditación en 24-48hs</span></div>
+            </label>
+            <label class="radio-card pay-card">
+              <input type="radio" name="metodo_pago" value="efectivo" onchange="showPayFields('efectivo')">
+              <div><b> Efectivo</b><span>Pago Fácil / Rapipago</span></div>
+            </label>
+          </div>
+
+          <div class="pay-detail" id="detail-mercado_pago">
+            <p class="pay-note">Al confirmar vas a la pantalla de pago de Mercado Pago para completar el cobro.</p>
+          </div>
+          <div class="pay-detail" id="detail-tarjeta_credito" style="display:none">
+            <p class="pay-note">Al confirmar te pedimos los datos de la tarjeta en un formulario seguro. Podés elegir pagar en cuotas.</p>
+          </div>
+          <div class="pay-detail" id="detail-tarjeta_debito" style="display:none">
+            <p class="pay-note">Al confirmar te pedimos los datos de la tarjeta de débito en un formulario seguro.</p>
+          </div>
+          <div class="pay-detail" id="detail-transferencia" style="display:none">
+            <p class="pay-note">Al confirmar te mostramos los datos de la cuenta del negocio. Tu pedido queda pendiente hasta que acreditemos la transferencia.</p>
+          </div>
+          <div class="pay-detail" id="detail-efectivo" style="display:none">
+            <p class="pay-note">Al confirmar generamos tu cupón de pago con código de barras para abonar en cualquier Rapipago o Pago Fácil. Tenés 72 horas para pagarlo.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="checkout-side">
+        <div class="card">
+          <h3>Tu pedido</h3>
+          {% for it in items %}
+          <div class="co-item">
+            <div class="co-ico">{{ it.icon }}</div>
+            <div class="co-info"><div class="nm">{{ it.name }}</div><div class="qty">x{{ it.qty }}</div></div>
+            <div class="mono">${{ it.line_total|arm }}</div>
+          </div>
+          {% endfor %}
+          <div class="co-total-row"><span>Subtotal</span><span class="mono">${{ subtotal|arm }}</span></div>
+          <div class="co-total-row"><span>Envío</span><span class="mono" id="envioLbl">${{ envio|arm }}</span></div>
+          <div class="co-total-row total"><span>Total</span><span class="mono" id="totalLbl">${{ total|arm }}</span></div>
+          <button class="btn-pill btn-primary" type="submit" style="width:100%;justify-content:center;margin-top:14px">Continuar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showPayFields(metodo){
+  document.querySelectorAll('.pay-detail').forEach(d => d.style.display = 'none');
+  document.getElementById('detail-'+metodo).style.display = 'block';
+}
+function toggleFacturaA(show){
+  document.getElementById('facturaAFields').style.display = show ? 'block' : 'none';
+}
+function toggleDireccion(show){
+  document.getElementById('direccionField').style.display = show ? 'block' : 'none';
+  if(!show){
+    const envioLbl = document.getElementById('envioLbl');
+    const totalLbl = document.getElementById('totalLbl');
+    envioLbl.textContent = '$0';
+  }
+}
+</script>
+{% endblock %}

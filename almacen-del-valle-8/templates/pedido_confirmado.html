@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Pedido confirmado — Almacén del Valle{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="confirm-card">
+      <div class="confirm-ico">{{ '' if pago.estado == 'aprobado' else '' }}</div>
+      <h2>{{ '¡Gracias por tu compra!' if pago.estado == 'aprobado' else 'Pedido registrado' }}</h2>
+      <p class="sub">Pedido #{{ pedido.id }} · {{ pago.detalle }}</p>
+
+      {% include '_instrucciones_pago.html' %}
+
+      {% include '_linea_de_tiempo.html' %}
+
+      <div class="confirm-details">
+        <div class="cd-row"><span>Estado del pedido</span><span class="status {{ pedido.estado }}">{{ pedido.estado|estado_pedido }}</span></div>
+        <div class="cd-row"><span>Entrega</span><span>{% if pedido.metodo_entrega == 'retiro' %}Retiro en sucursal{% else %}Envío a {{ pedido.direccion_envio or 'domicilio' }}{% endif %}</span></div>
+        <div class="cd-row"><span>Método de pago</span><span>{{ pago.metodo.replace('_',' ')|capitalize }}</span></div>
+        <div class="cd-row"><span>Referencia</span><span class="mono">{{ pago.referencia or '-' }}</span></div>
+        <div class="cd-row"><span>Total</span><span class="mono">${{ pedido.total|arm }}</span></div>
+      </div>
+
+      <div class="confirm-actions">
+        {% if factura %}
+        <div class="factura-btn-row">
+          <a class="btn-pill btn-primary" href="{{ url_for('factura_descargar', pedido_id=pedido.id) }}" target="_blank">📄 Descargar factura</a>
+          <a class="btn-pill btn-outline" href="{{ url_for('factura_imprimir', pedido_id=pedido.id) }}" target="_blank">🖨️ Imprimir</a>
+        </div>
+        <div class="pay-note" style="margin-top:2px">Factura {{ factura.numero }}</div>
+        {% else %}
+        <span class="pay-note">La factura se emite automáticamente una vez que se acredite el pago.</span>
+        {% endif %}
+        <a class="btn-pill btn-outline" href="{{ url_for('index') }}">Seguir comprando</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{% if pedido.estado not in ('entregado', 'cancelado') %}
+<script>
+/* Si el local cambia el estado del pedido, esta pantalla se actualiza sola */
+(function(){
+  const estadoMostrado = {{ pedido.estado|tojson }};
+  const urlEstado = {{ url_for('api_pedido_estado', pedido_id=pedido.id)|tojson }};
+  setInterval(async () => {
+    try {
+      const res = await fetch(urlEstado);
+      if(!res.ok) return;
+      const data = await res.json();
+      if(data.estado !== estadoMostrado) window.location.reload();
+    } catch(e) { /* sin conexión: se reintenta en la próxima vuelta */ }
+  }, 20000);
+})();
+</script>
+{% endif %}
+{% endblock %}

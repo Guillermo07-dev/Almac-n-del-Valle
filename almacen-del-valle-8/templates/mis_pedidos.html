@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Mis pedidos — Almacén del Valle{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="section-head"><div><h2>Mis pedidos</h2><div class="sub">Historial de compras y facturas</div></div></div>
+
+    {% if not pedidos %}
+    <p class="pay-note">Todavía no hiciste ningún pedido. <a href="{{ url_for('index') }}">Ir a la tienda</a></p>
+    {% else %}
+    <div class="card" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Pedido</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Seguimiento</th><th>Factura</th></tr></thead>
+          <tbody>
+            {% for p in pedidos %}
+            <tr>
+              <td class="mono">#{{ p.id }}</td>
+              <td>{{ p.created_at|fecha_ar }}</td>
+              <td class="mono">${{ p.total|arm }}</td>
+              <td><span class="status {{ p.estado }}">{{ p.estado|estado_pedido }}</span></td>
+              <td><a class="btn-pill btn-outline" style="padding:6px 14px;font-size:12px" href="{{ url_for('pedido_confirmado', pedido_id=p.id) }}">📍 Ver estado</a></td>
+              <td>
+                {% if p.factura_numero %}
+                <div class="factura-icons">
+                  <a class="btn-pill btn-outline" style="padding:6px 14px;font-size:12px" href="{{ url_for('factura_descargar', pedido_id=p.id) }}" target="_blank">📄 Descargar</a>
+                  <a class="btn-pill btn-outline" style="padding:6px 14px;font-size:12px" href="{{ url_for('factura_imprimir', pedido_id=p.id) }}" target="_blank">🖨️ Imprimir</a>
+                </div>
+                {% else %}
+                <span class="pay-note" style="margin:0">Pendiente</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

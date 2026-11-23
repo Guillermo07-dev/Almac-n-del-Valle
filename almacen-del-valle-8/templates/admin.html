@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<title>Panel Administrador — Almacén del Valle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css', v=version_estaticos()) }}">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-logo">
+      <div class="mark">AV</div>
+      <div class="txt">Almacén del Valle<span>Panel administrador</span></div>
+    </div>
+    <nav class="sb-nav">
+    {% if puede('dashboard') %}<a class="nav-item" data-view="dashboard" onclick="setView('dashboard', this)"><span class="n-ico">📊</span> Dashboard</a>{% endif %}
+    {% if puede('productos') %}<a class="nav-item" data-view="productos" onclick="setView('productos', this)"><span class="n-ico">🛒</span> Productos <span class="nav-badge">{{ products|length }}</span></a>{% endif %}
+    {% if puede('categorias') %}<a class="nav-item" data-view="categorias" onclick="setView('categorias', this)"><span class="n-ico">🗂️</span> Categorías <span class="nav-badge">{{ categories|length }}</span></a>{% endif %}
+    {% if puede('ofertas') %}<a class="nav-item" data-view="ofertas" onclick="setView('ofertas', this)"><span class="n-ico">📢</span> Ofertas de la Semana</a>{% endif %}
+    <div class="sb-sep"></div>
+    {% if puede('pedidos') %}<a class="nav-item" data-view="pedidos" onclick="setView('pedidos', this)"><span class="n-ico">📦</span> Pedidos<span class="nav-badge" style="{{ '' if pedidos_pendientes else 'display:none' }}">{{ pedidos_pendientes }}</span></a>{% endif %}
+    {% if puede('clientes') %}<a class="nav-item" data-view="clientes" onclick="setView('clientes', this)"><span class="n-ico">👥</span> Clientes</a>{% endif %}
+    <div class="sb-sep"></div>
+    {% if puede('stock') %}
+    <a class="nav-item" data-view="stock" onclick="setView('stock', this)">
+      <span class="n-ico">⚠️</span> Alertas de Stock
+      {% if (stock_bajo|length + sin_stock|length) > 0 %}<span class="nav-badge danger">{{ stock_bajo|length + sin_stock|length }}</span>{% endif %}
+    </a>
+    {% endif %}
+    {% if puede('reportes') %}<a class="nav-item" data-view="reportes" onclick="setView('reportes', this)"><span class="n-ico">📑</span> Reportes</a>{% endif %}
+    {% if puede('etiquetas') %}<a class="nav-item" data-view="etiquetas" onclick="setView('etiquetas', this)"><span class="n-ico">🏷️</span> Etiquetas de Precio</a>{% endif %}
+    {% if puede('gastos') %}<a class="nav-item" data-view="gastos" onclick="setView('gastos', this)"><span class="n-ico">💸</span> Gastos / Compras</a>{% endif %}
+    {% if puede('cupones') %}<a class="nav-item" data-view="cupones" onclick="setView('cupones', this)"><span class="n-ico">🎟️</span> Cupones</a>{% endif %}
+    {% if puede('chatbot') %}<a class="nav-item" data-view="chatbot" onclick="setView('chatbot', this)"><span class="n-ico">🤖</span> Alice{% if chatbot_pendientes %} <span class="nav-badge">{{ chatbot_pendientes|length }}</span>{% endif %}</a>{% endif %}
+    {% if puede('historial') %}<a class="nav-item" data-view="historial" onclick="setView('historial', this)"><span class="n-ico">📈</span> Historial de Precios</a>{% endif %}
+    <div class="sb-sep"></div>
+    {% if puede('backups') %}<a class="nav-item" data-view="backups" onclick="setView('backups', this)"><span class="n-ico">💾</span> Backups</a>{% endif %}
+    {% if puede('facturacion') %}<a class="nav-item" data-view="facturacion" onclick="setView('facturacion', this)"><span class="n-ico">🧾</span> Facturación</a>{% endif %}
+    {% if puede('negocio') %}<a class="nav-item" data-view="negocio" onclick="setView('negocio', this)"><span class="n-ico">🏬</span> Datos del Negocio</a>{% endif %}
+    {% if session.get('es_dueno') %}
+    <a class="nav-item" data-view="usuarios" onclick="setView('usuarios', this)"><span class="n-ico">🔐</span> Usuarios <span class="nav-badge">{{ usuarios_admin|length }}</span></a>
+    <a class="nav-item" data-view="auditoria" onclick="setView('auditoria', this)"><span class="n-ico">🧾</span> Auditoría</a>
+    {% endif %}
+    </nav>
+    <div class="sb-foot">
+      <a class="nav-item" href="{{ url_for('index') }}" target="_blank"><span class="n-ico">🌐</span> Ver tienda</a>
+      <div class="sb-user">
+        <div class="av">{{ session.get('admin_nombre','AD')[:2]|upper }}</div>
+        <div><div class="nm">{{ session.get('admin_nombre','Administrador') }}</div><div class="rl">Administrador</div></div>
+      </div>
+      <a class="logout-btn" href="{{ url_for('admin_logout') }}">Cerrar sesión</a>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <button class="icon-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" id="mobileMenuBtn" style="display:none">☰</button>
+      <div>
+        <h1 id="viewTitle">Dashboard</h1>
+        <div class="sub" id="viewSub">Resumen general del negocio</div>
+      </div>
+      <button class="icon-btn" onclick="toggleTheme()" id="themeBtn" style="margin-left:auto">🌙</button>
+      <button class="icon-btn" onclick="abrirPreviewTienda()" title="Ver como cliente">👁️</button>
+      <a class="icon-btn" href="{{ url_for('index') }}" target="_blank" title="Abrir tienda en pestaña nueva">🏬</a>
+    </div>
+
+    <div class="content">
+      {% with mensajes = get_flashed_messages(with_categories=true) %}
+        {% for categoria, mensaje in mensajes %}
+        <div class="flash-msg {{ categoria }}" role="status">{{ mensaje }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <!-- DASHBOARD -->
+      <div class="view active" id="view-dashboard">
+      {% if puede('dashboard') %}
+        {% set alertas = stock_bajo|length + sin_stock|length %}
+        {% if alertas > 0 %}
+        <div class="stock-alert-banner" onclick="setView('stock', document.querySelector('[data-view=stock]'))">
+          <div class="sab-ico">⚠️</div>
+          <div class="sab-text">
+            <b>{{ alertas }} producto{{ 'es' if alertas != 1 else '' }}</b> necesita{{ 'n' if alertas != 1 else '' }} atención de stock —
+            {% if sin_stock|length %}{{ sin_stock|length }} sin stock{% endif %}{% if stock_bajo|length and sin_stock|length %}, {% endif %}{% if stock_bajo|length %}{{ stock_bajo|length }} con stock bajo{% endif %}.
+          </div>
+          <div class="sab-cta">Ver detalle →</div>
+        </div>
+        {% endif %}
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="k-ico" style="background:var(--verde-100); color:var(--verde-800)">💰</div>
+            <div class="k-val">${{ kpis.ventas_mes|arm }}</div>
+            <div class="k-lbl">Ventas del mes</div>
+          </div>
+          <div class="kpi-card">
+            <div class="k-ico" style="background:#FDEEDC; color:#95600C">📦</div>
+            <div class="k-val">{{ kpis.pedidos_mes }}</div>
+            <div class="k-lbl">Pedidos del mes</div>
+          </div>
+          <div class="kpi-card">
+            <div class="k-ico" style="background:#E1F0FB; color:#245A8C">🛒</div>
+            <div class="k-val">{{ kpis.productos_activos }}</div>
+            <div class="k-lbl">Productos activos</div>
+          </div>
+          <div class="kpi-card">
+            <div class="k-ico" style="background:var(--ciruela-100); color:var(--ciruela)">👥</div>
+            <div class="k-val">{{ kpis.total_clientes }}</div>
+            <div class="k-lbl">Clientes registrados</div>
+          </div>
+        </div>
+
+        <div class="chart-row">
+          <div class="card">
+            <div class="card-head"><div><h3>Ventas por mes</h3><div class="sub">Ingresos totales facturados</div></div></div>
+            <canvas id="salesChart" height="110"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>Ventas por categoría</h3><div class="sub">Participación acumulada</div></div></div>
+            <canvas id="catChart" height="180"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h3>Pedidos recientes</h3></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Pedido</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Estado</th></tr></thead>
+              <tbody>
+                {% for p in pedidos[:6] %}
+                <tr>
+                  <td class="mono">#{{ p.id }}</td>
+                  <td>{{ p.nombre }} {{ p.apellido }}</td>
+                  <td>{{ p.created_at }}</td>
+                  <td class="mono">${{ p.total|arm }}</td>
+                  <td><span class="status {{ p.estado }}">{{ p.estado.replace('_',' ')|capitalize }}</span></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}<div class="card">Elegí una sección del menú de la izquierda.</div>{% endif %}
+      </div>
+
+      <!-- PRODUCTOS -->
+      <div class="view" id="view-productos">
+      {% if puede('productos') %}
+        <div class="toolbar">
+          <div class="import-export-row">
+            <a class="btn btn-ghost" href="{{ url_for('productos_exportar') }}"> Exportar a Excel (.xlsx)</a>
+            <button type="button" class="btn btn-ghost" onclick="document.getElementById('importarModal').classList.add('show')">📥 Importar desde Excel</button>
+          </div>
+          <button class="btn btn-primary" onclick="openModal('productModal')">+ Nuevo producto</button>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Producto</th><th>Precio</th><th>Stock</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody>
+                {% for p in products %}
+                <tr>
+                  <td>
+                    <div class="prod-cell">
+                      {% if p.image %}
+                      <div class="prod-ico prod-ico-img" style="background-image:url('{{ p.image }}')"></div>
+                      {% else %}
+                      <div class="prod-ico" style="background:{{ p.category_color or '#EEF6F1' }}">{{ p.icon }}</div>
+                      {% endif %}
+                      <div><div class="nm">{{ p.name }}{% if p.destacado %} ⭐{% endif %}</div><div class="ct">{{ p.brand }} · {{ p.category_name or '—' }} · {{ p.unidad }}</div></div>
+                    </div>
+                  </td>
+                  <td class="mono">${{ p.price|arm }}</td>
+                  <td class="mono">{{ p.stock }}</td>
+                  <td><span class="status {{ 'entregado' if p.active else 'cancelado' }}">{{ 'Activo' if p.active else 'Inactivo' }}</span></td>
+                  <td>
+                    <div class="row-actions">
+                      <button class="mini-btn" title="{{ 'Quitar destacado' if p.destacado else 'Destacar' }}" onclick="toggleDestacado('{{ p.id }}', this)">{{ '⭐' if p.destacado else '☆' }}</button>
+                      <button class="mini-btn" title="Editar" onclick='editProduct({{ {"id":p.id,"code":p.code,"name":p.name,"category_id":p.category_id,"brand":p.brand,"unidad":p.unidad,"price":p.price,"old_price":p.old_price,"stock":p.stock,"description":p.description,"info_adicional":p.info_adicional,"destacado":p.destacado,"active":p.active}|tojson }})'>✏️</button>
+                      <form method="POST" action="{{ url_for('admin_producto_eliminar', product_id=p.id) }}" onsubmit="return confirm('¿Eliminar este producto?')" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="mini-btn danger" title="Eliminar">🗑️</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="card"> No tenés permiso para ver esta sección del panel.</div>
+      {% endif %}
+      </div>
+
+      <!-- CATEGORIAS -->
+      <div class="view" id="view-categorias">
+      {% if puede('categorias') %}
+        <div class="toolbar">
+          <div></div>
+          <button class="btn btn-primary" onclick="openModal('categoryModal')">+ Nueva categoría</button>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Categoría</th><th>Productos</th><th>Acciones</th></tr></thead>
+              <tbody>
+                {% for c in categories %}
+                <tr>
+                  <td>
+                    <div class="prod-cell">
+                      <div class="prod-ico" style="background:{{ c.color }}">{{ c.icon }}</div>
+                      <div class="nm">{{ c.name }}</div>
+                    </div>
+                  </td>
+                  <td class="mono">{{ products|selectattr('category_id','equalto',c.id)|list|length }}</td>
+                  <td>
+                    <form method="POST" action="{{ url_for('admin_categoria_eliminar', cat_id=c.id) }}" onsubmit="return confirm('¿Eliminar esta categoría?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="mini-btn danger" title="Eliminar">🗑️</button>
+                    </form>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="card"> No tenés permiso para ver esta sección del panel.</div>
+      {% endif %}
+      </div>
+
+      <!-- PEDIDOS -->
+      <div class="view" id="view-pedidos">
+      {% if puede('pedidos') %}
+        {% if not correo_configurado() %}
+        <div class="flash-msg error" style="margin-bottom:14px"> El correo no está configurado, por eso las facturas <b>no se envían</b> a los clientes. Configuralo en <a href="/admin?view=negocio" style="text-decoration:underline">Datos del Negocio → Correo electrónico</a> y probalo con "Enviar prueba".</div>
+        {% endif %}
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Pedido</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Avanzar</th><th>Factura</th></tr></thead>
+              <tbody>
+                {% for p in pedidos %}
+                <tr>
+                  <td class="mono">#{{ p.id }}</td>
+                  <td>{{ p.nombre }} {{ p.apellido }}<div style="font-size:11px;color:var(--text-soft)">{{ 'Retira en el local' if p.metodo_entrega == 'retiro' else 'Envío a domicilio' }}</div></td>
+                  <td>{{ p.created_at }}</td>
+                  <td class="mono">${{ p.total|arm }}</td>
+                  <td>
+                    <span class="status {{ p.estado }}">{{ p.estado|estado_pedido }}</span>
+                    <select class="filter-select" style="padding:4px 8px;font-size:11px;margin-top:4px;display:block" title="Corregir el estado a mano" onchange="updateEstado({{ p.id }}, this.value)">
+                      {% for valor, texto in estados_disponibles(p) %}
+                      <option value="{{ valor }}" {{ 'selected' if p.estado==valor else '' }}>{{ texto }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                  <td>
+                    {% set sig = siguiente_paso(p) %}
+                    {% if sig and p.estado != 'cancelado' %}
+                    <button class="btn btn-primary" style="padding:7px 12px;font-size:12px;white-space:nowrap" onclick="updateEstado({{ p.id }}, '{{ sig[0] }}')">{{ sig[1] }} →</button>
+                    {% elif p.estado == 'entregado' %}<span style="color:var(--verde-600);font-weight:700;font-size:12px">✓ Entregado</span>
+                    {% else %}<span style="color:var(--text-soft);font-size:12px">—</span>{% endif %}
+                  </td>
+                  <td>
+                    {% if p.factura_numero %}
+                    <div class="row-actions">
+                      <a class="mini-btn" title="Descargar factura" href="{{ url_for('factura_descargar', pedido_id=p.id) }}" target="_blank">📄</a>
+                      <a class="mini-btn" title="Imprimir factura" href="{{ url_for('factura_imprimir', pedido_id=p.id) }}" target="_blank">🖨️</a>
+                      <form method="POST" action="{{ url_for('reenviar_factura', pedido_id=p.id) }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="mini-btn" type="submit" title="Enviar la factura a {{ p.cliente_email }}">✉️</button></form>
+                    </div>
+                    <div style="font-size:11px;margin-top:4px;color:{{ 'var(--verde-700)' if p.factura_correo == 'enviado' else ('var(--rojo)' if p.factura_correo == 'error' else 'var(--text-soft)') }}">
+                      {% if p.factura_correo == 'enviado' %}✓ Enviada por correo{% elif p.factura_correo == 'error' %}⚠ No se pudo enviar{% else %}Sin enviar{% endif %}
+                    </div>
+                    {% else %}<span style="color:var(--text-soft);font-size:12px">—</span>{% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="card"> No tenés permiso para ver esta sección del panel.</div>
+      {% endif %}
+      </div>
+
+      <!-- CLIENTES -->
+      <div class="view" id="view-clientes">
+      {% if puede('clientes') %}
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Cliente</th><th>Correo</th><th>Teléfono</th><th>Registrado</th></tr></thead>
+              <tbody>
+                {% for c in clientes %}
+                <tr>
+                  <td class="nm" style="font-weight:700">{{ c.nombre }} {{ c.apellido }}</td>
+                  <td>{{ c.email }}{% if not c.email_confirmado %} <span class="nav-badge" title="Todavía no abrió el enlace del correo">sin activar</span>{% endif %}</td>
+                  <td>{{ c.telefono or '—' }}</td>
+                  <td>{{ c.created_at }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="card">🔒 No tenés permiso para ver esta sección del panel.</div>
+      {% endif %}
+      </div>
+
+      <!-- STOCK -->
+      <div class="view" id="view-stock">
+      {% if puede('stock') %}
+        <div class="card">
+          <div class="card-head">
+            <div><h3> Sin stock</h3><div class="sub">Productos agotados — no se pueden vender hasta reponer</div></div>
+          </div>
+          {% if not sin_stock %}
+          <p style="color:var(--text-soft); font-size:13.5px">No hay productos sin stock. </p>
+          {% else %}
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Producto</th><th>Categoría</th><th>Stock</th><th>Acciones</th></tr></thead>
+              <tbody>
+                {% for p in sin_stock %}
+                <tr>
+                  <td>
+                    <div class="prod-cell">
+                      <div class="prod-ico" style="background:{{ p.category_color or '#EEF6F1' }}">{{ p.icon }}</div>
+                      <div><div class="nm">{{ p.name }}</div><div class="ct">{{ p.brand }}</div></div>
+                    </div>
+                  </td>
+                  <td>{{ p.category_name or '—' }}</td>
+                  <td><span class="status cancelado">0 unidades</span></td>
+                  <td><button class="mini-btn" title="Editar" onclick='editProduct({{ {"id":p.id,"code":p.code,"name":p.name,"category_id":p.category_id,"brand":p.brand,"unidad":p.unidad,"price":p.price,"old_price":p.old_price,"stock":p.stock,"description":p.description,"info_adicional":p.info_adicional,"destacado":p.destacado,"active":p.active}|tojson }})'>✏️</button></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div><h3> Stock bajo</h3><div class="sub">{{ low_stock_threshold }} unidades o menos — conviene reponer pronto</div></div>
+          </div>
+          {% if not stock_bajo %}
+          <p style="color:var(--text-soft); font-size:13.5px">No hay productos con stock bajo. 🎉</p>
+          {% else %}
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Producto</th><th>Categoría</th><th>Stock</th><th>Acciones</th></tr></thead>
+              <tbody>
+                {% for p in stock_bajo %}
+                <tr>
+                  <td>
+                    <div class="prod-cell">
+                      <div class="prod-ico" style="background:{{ p.category_color or '#EEF6F1' }}">{{ p.icon }}</div>
+                      <div><div class="nm">{{ p.name }}</div><div class="ct">{{ p.brand }}</div></div>
+                    </div>
+                  </td>
+                  <td>{{ p.category_name or '—' }}</td>
+                  <td><span class="status pendiente">{{ p.stock }} unidades</span></td>
+                  <td><button class="mini-btn" title="Editar" onclick='editProduct({{ {"id":p.id,"code":p.code,"name":p.name,"category_id":p.category_id,"brand":p.brand,"unidad":p.unidad,"price":p.price,"old_price":p.old_price,"stock":p.stock,"description":p.description,"info_adicional":p.info_adicional,"destacado":p.destacado,"active":p.active}|tojson }})'>✏️</button></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="card"> No tenés permiso para ver esta sección del panel.</div>
+      {% endif %}
+      </div>
+
+      <!-- REPORTES -->
+      <div class="view" id="view-reportes">
+      {% if puede('reportes') %}
+        <div class="report-grid">
+          <div class="card report-card">
+            <div class="report-ico" style="background:var(--verde-100); color:var(--verde-800)">💰</div>
+            <h3>Ventas — Mensual</h3>
+            <p>Detalle de lo vendido en {{ meses_es[mes_actual-1] }} {{ anio_actual }}, por categoría.</p>
+            <div class="report-actions">
+              <a class="btn btn-primary" href="{{ url_for('reporte_ventas_mensual', fmt='pdf') }}" target="_blank">📄 PDF</a>
+              <a class="btn btn-ghost" href="{{ url_for('reporte_ventas_mensual', fmt='excel') }}" target="_blank">📊 Excel (.xlsx)</a>
+            </div>
+          </div>
+          <div class="card report-card">
+            <div class="report-ico" style="background:var(--verde-100); color:var(--verde-800)">💰</div>
+            <h3>Ventas — Anual</h3>
+            <p>Detalle de lo vendido en {{ anio_actual }} completo, por categoría.</p>
+            <div class="report-actions">
+              <a class="btn btn-primary" href="{{ url_for('reporte_ventas_anual', fmt='pdf') }}" target="_blank">📄 PDF</a>
+              <a class="btn btn-ghost" href="{{ url_for('reporte_ventas_anual', fmt='excel') }}" target="_blank">📊 Excel (.xlsx)</a>
+            </div>
+          </div>
+          <div class="card report-card">
+            <div class="report-ico" style="background:#FDEEDC; color:#95600C">🧾</div>
+            <h3>Facturación — Mensual</h3>
+            <p>Todas las facturas emitidas en {{ meses_es[mes_actual-1] }} {{ anio_actual }}.</p>
+            <div class="report-actions">
+              <a class="btn btn-primary" href="{{ url_for('reporte_facturacion_mensual', fmt='pdf') }}" target="_blank">📄 PDF</a>
+              <a class="btn btn-ghost" href="{{ url_for('reporte_facturacion_mensual', fmt='excel') }}" target="_blank">📊 Excel (.xlsx)</a>
+            </div>
+          </div>
+          <div class="card report-card">
+            <div class="report-ico" style="background:#FDEEDC; color:#95600C">🧾</div>
+            <h3>Facturación — Anual</h3>
+            <p>Todas las facturas emitidas en {{ anio_actual }} completo.</p>
+            <div class="report-actions">
+              <a class="btn btn-primary" href="{{ url_for('reporte_facturacion_anual', fmt='pdf') }}" target="_blank">📄 PDF</a>
+              <a class="btn btn-ghost" href="{{ url_for('reporte_facturacion_anual', fmt='excel') }}" target="_blank">📊 Excel (.xlsx)</a>
+            </div>
+          </div>
+          <div class="card report-card">
+            <div class="report-ico" style="background:var(--rojo-100); color:var(--rojo)">⚠️</div>
+            <h3>Stock bajo</h3>
+            <p>Productos con {{ low_stock_threshold }} unidades o menos — para reponer.</p>
+            <div class="report-actions">
+              <a class="btn btn-primary" href="{{ url_for('reporte_stock_bajo', fmt='pdf') }}" target="_blank">📄 PDF</a>
+              <a class="btn btn-ghost" href="{{ url_for('reporte_stock_bajo', fmt='excel') }}" target="_blank">📊 Excel (.xlsx)</a>
+            </div>
+          </div>
+          <div class="card report-card">
+            <div class="report-ico" style="background:var(--ciruela-100); color:var(--ciruela)">📋</div>
+            <h3>Stock general</h3>
+            <p>Listado completo de productos, con stock y estado actual.</p>
+            <div class="report-actions">
+              <a class="btn btn-primary" href="{{ url_for('reporte_stock_general', fmt='pdf') }}" target="_blank">📄 PDF</a>
+              <a class="btn btn-ghost" href="{{ url_for('reporte_stock_general', fmt='excel') }}" target="_blank">📊 Excel (.xlsx)</a>
+            </div>
+          </div>
+          <div class="card report-card">
+            <div class="report-ico" style="background:#E1F0FB; color:#245A8C">💵</div>
+            <h3>Valorización de stock</h3>
+            <p>Valor total del inventario actual, a precio de venta.</p>
+            <div class="report-actions">
+              <a class="btn btn-primary" href="{{ url_for('reporte_valor_stock', fmt='pdf') }}" target="_blank">📄 PDF</a>
+              <a class="btn btn-ghost" href="{{ url_for('reporte_valor_stock', fmt='excel') }}" target="_blank">📊 Excel (.xlsx)</a>
+            </div>
+          </div>
+        </div>
+      {% else %}
+        <div class="card"> No tenés permiso para ver esta sección del panel.</div>
+      {% endif %}
+      </div>
+
+      <!-- OFERTAS DE LA SEMANA -->
+      <div class="view" id="view-ofertas">
+      {% if puede('ofertas') %}
+        <div class="card">
+          <div class="card-head">
+            <div><h3> Publicar oferta de la semana</h3><div class="sub">Aparece como banner gigante arriba de todo en la tienda.</div></div>
+          </div>
+          <form method="POST" action="{{ url_for('admin_oferta_agregar') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row"><label>Título</label><input name="titulo" placeholder="Ej: Semana del ahorro" required></div>
+            <div class="form-row"><label>Texto de la promoción</label><textarea name="texto" rows="2" placeholder="Ej: Hasta 30% off en frescos y almacén, toda la semana." required></textarea></div>
+            <div class="form-grid">
+              <div class="form-row">
+                <label>Vincular a un producto (opcional)</label>
+                <select name="producto_id">
+                  <option value="">Ninguno</option>
+                  {% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Vincular a una categoría (opcional)</label>
+                <select name="categoria_id">
+                  <option value="">Ninguna</option>
+                  {% for c in categories %}<option value="{{ c.id }}">{{ c.icon }} {{ c.name }}</option>{% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Color del banner</label>
+              <select name="color">
+                <option value="verde">Verde (marca)</option>
+                <option value="mango">Mango (destacado)</option>
+                <option value="ciruela">Ciruela (premium)</option>
+              </select>
+            </div>
+            <div class="modal-actions" style="justify-content:flex-start">
+              <button type="submit" class="btn btn-primary">+ Publicar oferta</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h3>Ofertas publicadas</h3></div></div>
+          {% if not ofertas %}
+          <p style="color:var(--text-soft); font-size:13.5px">Todavía no publicaste ninguna oferta.</p>
+          {% else %}
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Título</th><th>Texto</th><th>Vinculada a</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody>
+                {% for o in ofertas %}
+                <tr>
+                  <td class="nm" style="font-weight:700">{{ o.titulo }}</td>
+                  <td style="max-width:260px">{{ o.texto }}</td>
+                  <td>{{ o.producto_nombre or o.categoria_nombre or '—' }}</td>
+                  <td><span class="status {{ 'entregado' if o.activa else 'cancelado' }}">{{ 'Activa' if o.activa else 'Oculta' }}</span></td>
+                  <td>
+                    <div class="row-actions">
+                      <form method="POST" action="{{ url_for('admin_oferta_toggle', oferta_id=o.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn" title="{{ 'Ocultar' if o.activa else 'Mostrar' }}">{{ '🙈' if o.activa else '👁️' }}</button></form>
+                      <form method="POST" action="{{ url_for('admin_oferta_eliminar', oferta_id=o.id) }}" onsubmit="return confirm('¿Eliminar esta oferta?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn danger" title="Eliminar">🗑️</button></form>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="card"> No tenés permiso para ver esta sección del panel.</div>
+      {% endif %}
+      </div>
+
+      <!-- ETIQUETAS DE PRECIO -->
+      <div class="view" id="view-etiquetas">
+      {% if puede('etiquetas') %}
+        <div class="card">
+          <div class="card-head">
+            <div><h3> Etiquetas de precio para imprimir</h3><div class="sub">Generá un PDF con etiquetas listas para pegar en las góndolas. Cada hoja trae 21 etiquetas (3 columnas × 7 filas).</div></div>
+          </div>
+          <div class="report-actions" style="margin-bottom:16px">
+            <a class="btn btn-primary" href="{{ url_for('admin_etiquetas') }}" target="_blank">🖨️ Imprimir todas (global)</a>
+            <button type="button" class="btn btn-ghost" onclick="document.getElementById('etiquetas-selector').classList.toggle('show')">Elegir productos puntuales</button>
+          </div>
+          <div id="etiquetas-selector" class="etiquetas-selector">
+            <form method="POST" action="{{ url_for('admin_etiquetas') }}" target="_blank"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="toolbar" style="margin-bottom:10px">
+                <div class="sub" style="font-size:12.5px; color:var(--text-soft)">Marcá los productos que querés incluir</div>
+                <div style="display:flex; gap:8px">
+                  <button type="button" class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="seleccionarTodasEtiquetas(true)">✓ Todos</button>
+                  <button type="button" class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="seleccionarTodasEtiquetas(false)">✗ Ninguno</button>
+                </div>
+              </div>
+              <div class="etiquetas-lista">
+                {% for p in products %}
+                <label class="etiqueta-chk-row">
+                  <input type="checkbox" name="product_ids" value="{{ p.id }}" class="etiqueta-chk">
+                  <span>{{ p.name }}</span><span class="mono" style="margin-left:auto">${{ p.price|arm }}</span>
+                </label>
+                {% endfor %}
+              </div>
+              <button type="submit" class="btn btn-primary" style="margin-top:14px"> Imprimir seleccionadas</button>
+            </form>
+          </div>
+        </div>
+      {% else %}
+        <div class="card"> No tenés permiso para ver esta sección del panel.</div>
+      {% endif %}
+      </div>
+
+      <!-- GASTOS / COMPRAS -->
+      <div class="view" id="view-gastos">
+      {% if puede('gastos') %}
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+          <div class="kpi-card">
+            <div class="k-ico" style="background:var(--rojo-100); color:var(--rojo)">💸</div>
+            <div class="k-val">${{ gastos_mes_total|arm }}</div>
+            <div class="k-lbl">Gastos del mes</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h3> Descargar reportes de gastos</h3></div></div>
+          <div class="report-grid">
+            <div class="report-card">
+              <h3 style="font-size:14px">Mensual — {{ meses_es[mes_actual-1] }} {{ anio_actual }}</h3>
+              <div class="report-actions">
+                <a class="btn btn-primary" href="{{ url_for('reporte_gastos_mensual', fmt='pdf') }}" target="_blank">📄 PDF</a>
+                <a class="btn btn-ghost" href="{{ url_for('reporte_gastos_mensual', fmt='excel') }}" target="_blank">📊 Excel (.xlsx)</a>
+              </div>
+            </div>
+            <div class="report-card">
+              <h3 style="font-size:14px">Anual — {{ anio_actual }}</h3>
+              <div class="report-actions">
+                <a class="btn btn-primary" href="{{ url_for('reporte_gastos_anual', fmt='pdf') }}" target="_blank">📄 PDF</a>
+                <a class="btn btn-ghost" href="{{ url_for('reporte_gastos_anual', fmt='excel') }}" target="_blank">📊 Excel (.xlsx)</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h3>💸 Registrar gasto / compra</h3></div></div>
+          <div class="form-row">
+            <label>Categoría *</label>
+            <select id="g-cat" onchange="actualizarCamposGasto()">
+              <option value="Compra mercadería"> Compra mercadería</option>
+              <option value="Servicios"> Servicios</option>
+              <option value="Alquiler"> Alquiler</option>
+              <option value="Sueldos"> Sueldos</option>
+              <option value="Logística"> Logística</option>
+              <option value="Mantenimiento"> Mantenimiento</option>
+              <option value="Impuestos"> Impuestos</option>
+              <option value="General"> General</option>
+            </select>
+          </div>
+          <div class="form-row"><label>Descripción *</label><input type="text" id="g-desc" placeholder="Breve descripción..."></div>
+
+          <div id="g-bloque-factura">
+            <div class="form-grid form-grid-3">
+              <div class="form-row"><label>Proveedor</label><input type="text" id="g-proveedor" placeholder="Nombre del proveedor"></div>
+              <div class="form-row"><label>CUIT</label><input type="text" id="g-cuit" placeholder="XX-XXXXXXXX-X"></div>
+              <div class="form-row"><label>Razón social</label><input type="text" id="g-razon-social" placeholder="Razón social del proveedor"></div>
+            </div>
+            <div class="form-grid form-grid-3">
+              <div class="form-row"><label>Domicilio fiscal</label><input type="text" id="g-domicilio" placeholder="Dirección fiscal"></div>
+              <div class="form-row"><label>Condición frente al IVA</label>
+                <select id="g-condicion-iva"><option value="">— Seleccionar —</option>{% for c in condiciones_iva %}<option>{{ c }}</option>{% endfor %}</select>
+              </div>
+              <div class="form-row"><label>Tipo de factura</label>
+                <select id="g-tipo-factura"><option value="">— Seleccionar —</option><option value="A">Factura A</option><option value="B">Factura B</option><option value="C">Factura C</option><option value="E">Factura E</option></select>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="form-row"><label>N° de factura</label><input type="text" id="g-nro-factura" placeholder="0001-00001234"></div>
+              <div class="form-row"><label>Monto ($) *</label><input type="number" id="g-monto-factura" min="0" step="0.01" placeholder="0"></div>
+            </div>
+          </div>
+
+          <div id="g-bloque-sueldo" style="display:none">
+            <div class="form-grid form-grid-3">
+              <div class="form-row"><label>Nombre *</label><input type="text" id="g-nombre" placeholder="Nombre del empleado"></div>
+              <div class="form-row"><label>Apellido *</label><input type="text" id="g-apellido" placeholder="Apellido"></div>
+              <div class="form-row"><label>Condición frente al IVA</label>
+                <select id="g-condicion-iva-sueldo"><option value="">— Seleccionar —</option>{% for c in condiciones_iva %}<option>{{ c }}</option>{% endfor %}</select>
+              </div>
+            </div>
+            <div class="form-row"><label>Monto ($) *</label><input type="number" id="g-monto-sueldo" min="0" step="0.01" placeholder="0"></div>
+          </div>
+
+          <div id="g-bloque-impuesto" style="display:none">
+            <div class="form-grid">
+              <div class="form-row"><label>Tipo de impuesto *</label>
+                <select id="g-tipo-impuesto">
+                  <option value="">— Seleccionar —</option>
+                  <option value="IVA">Impuesto al Valor Agregado (IVA)</option>
+                  <option value="Ganancias">Impuesto a las Ganancias</option>
+                  <option value="Débitos y Créditos Bancarios">Impuesto a los Débitos y Créditos Bancarios</option>
+                  <option value="Ingresos Brutos (IIBB)">Impuesto Sobre los Ingresos Brutos (IIBB)</option>
+                </select>
+              </div>
+              <div class="form-row"><label>Monto ($) *</label><input type="number" id="g-monto-impuesto" min="0" step="0.01" placeholder="0"></div>
+            </div>
+          </div>
+
+          <div id="g-bloque-general" style="display:none">
+            <div class="form-row"><label>Monto ($) *</label><input type="number" id="g-monto-general" min="0" step="0.01" placeholder="0"></div>
+          </div>
+
+          <div class="form-row"><label>Nota / observación (opcional)</label><input type="text" id="g-nota" placeholder="Cualquier aclaración adicional..."></div>
+
+          <div class="modal-actions" style="justify-content:flex-start">
+            <button type="button" class="btn btn-primary" onclick="guardarGasto()"> Registrar gasto</button>
+            <span id="g-msg" style="font-size:13px; color:var(--verde-700); display:none"> Gasto guardado correctamente</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h3> Gastos de {{ meses_es[mes_actual-1] }} {{ anio_actual }}</h3></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Proveedor / Empleado</th><th>Monto</th><th></th></tr></thead>
+              <tbody id="gastosTableBody">
+                {% for g in gastos_recientes %}
+                <tr id="gasto-row-{{ g.id }}">
+                  <td>{{ '%02d'|format(g.day) }}/{{ '%02d'|format(g.month) }}/{{ g.year }}</td>
+                  <td>{{ g.categoria }}</td>
+                  <td>{{ g.descripcion }}</td>
+                  <td>{{ g.quien }}</td>
+                  <td class="mono">${{ g.monto|arm }}</td>
+                  <td><button class="mini-btn danger" title="Eliminar" onclick="eliminarGasto({{ g.id }})">🗑️</button></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align:center;color:var(--text-soft);padding:20px">Sin gastos registrados este mes.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="card"> No tenés permiso para ver esta sección del panel.</div>
+      {% endif %}
+      </div>
+
+      <!-- CUPONES -->
+      <div class="view" id="view-cupones">
+      {% if puede('cupones') %}
+        <div class="card">
+          <div class="card-head"><div><h3> Crear cupón de descuento</h3></div></div>
+          <form method="POST" action="{{ url_for('cupon_agregar') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-grid form-grid-3">
+              <div class="form-row"><label>Código</label><input name="codigo" placeholder="Ej: VERANO20" required style="text-transform:uppercase"></div>
+              <div class="form-row">
+                <label>Tipo de descuento</label>
+                <select name="tipo">
+                  <option value="porcentaje">Porcentaje (%)</option>
+                  <option value="monto">Monto fijo ($)</option>
+                </select>
+              </div>
+              <div class="form-row"><label>Valor</label><input name="valor" type="number" step="0.01" min="0" required></div>
+            </div>
+            <div class="form-grid form-grid-3">
+              <div class="form-row"><label>Compra mínima ($)</label><input name="monto_minimo" type="number" step="0.01" min="0" value="0"></div>
+              <div class="form-row"><label>Usos máximos (0 = ilimitado)</label><input name="usos_maximos" type="number" min="0" value="0"></div>
+              <div class="form-row"><label>Fecha de vencimiento (opcional)</label><input name="fecha_expiracion" type="date"></div>
+            </div>
+            <div class="modal-actions" style="justify-content:flex-start">
+              <button type="submit" class="btn btn-primary">+ Crear cupón</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Código</th><th>Descuento</th><th>Mínimo</th><th>Usos</th><th>Vence</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody>
+                {% for cu in cupones %}
+                <tr>
+                  <td class="mono" style="font-weight:700">{{ cu.codigo }}</td>
+                  <td>{% if cu.tipo == 'porcentaje' %}{{ cu.valor|int }}%{% else %}${{ cu.valor|arm }}{% endif %}</td>
+                  <td class="mono">${{ cu.monto_minimo|arm }}</td>
+                  <td class="mono">{{ cu.usos_actuales }}{% if cu.usos_maximos %} / {{ cu.usos_maximos }}{% else %} / ∞{% endif %}</td>
+                  <td>{{ cu.fecha_expiracion or '—' }}</td>
+                  <td><span class="status {{ 'entregado' if cu.activo else 'cancelado' }}">{{ 'Activo' if cu.activo else 'Inactivo' }}</span></td>
+                  <td>
+                    <div class="row-actions">
+                      <form method="POST" action="{{ url_for('cupon_toggle', cid=cu.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn" title="{{ 'Desactivar' if cu.activo else 'Activar' }}">{{ '⏸️' if cu.activo else '▶️' }}</button></form>
+                      <form method="POST" action="{{ url_for('cupon_eliminar', cid=cu.id) }}" onsubmit="return confirm('¿Eliminar este cupón?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn danger" title="Eliminar">🗑️</button></form>
+                    </div>
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" style="text-align:center;color:var(--text-soft);padding:20px">Todavía no creaste ningún cupón.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="card"> No tenés permiso para ver esta sección del panel.</div>
+      {% endif %}
+      </div>
+
+      <!-- CHATBOT -->
+      <div class="view" id="view-chatbot">
+      {% if puede('chatbot') %}
+        <div class="card">
+          <div class="card-head"><div><h3> Probar a Alice</h3><div class="sub">Escribí una consulta como la haría un cliente. Las pruebas no quedan registradas.</div></div></div>
+          <div style="display:flex; gap:10px">
+            <input id="bot-prueba" placeholder="Ej: ¿tienen yerba?" style="flex:1" onkeydown="if(event.key==='Enter'){ event.preventDefault(); probarChatbot(); }">
+            <button type="button" class="btn btn-primary" onclick="probarChatbot()">Enviar</button>
+          </div>
+          <div id="bot-resultado" style="display:none; white-space:pre-line; margin-top:12px; padding:12px 14px; border-radius:10px; background:var(--verde-50, #EEF6F1); font-size:13.5px"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h3 id="bot-form-titulo"> Enseñarle una respuesta</h3>
+            <div class="sub">Alice ya responde horarios, envíos, pagos, productos y estado de pedidos con los datos del negocio. Acá le sumás respuestas propias.</div></div></div>
+          <form method="POST" action="{{ url_for('chatbot_agregar') }}" id="botForm" data-create-url="{{ url_for('chatbot_agregar') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="pendiente_id" id="bot-pendiente-id">
+            <div class="form-row"><label>Pregunta de ejemplo</label><input name="pregunta" id="bot-pregunta" placeholder="Ej: ¿Hacen cambios de mercadería?" required></div>
+            <div class="form-row"><label>Palabras clave (separadas por coma)</label>
+              <input name="palabras_clave" id="bot-claves" placeholder="Ej: cambio de mercadería, devolver, devolución">
+              <p class="hint">Si la consulta contiene todas las palabras de alguna de estas frases, Alice usa esta respuesta. Cada frase puede tener varias palabras.</p></div>
+            <div class="form-row"><label>Respuesta</label><textarea name="respuesta" id="bot-respuesta" rows="3" required></textarea></div>
+            <div class="modal-actions" style="justify-content:flex-start">
+              <button type="submit" class="btn btn-primary" id="bot-submit">+ Guardar respuesta</button>
+              <button type="button" class="btn btn-ghost" onclick="resetFormBot()">Limpiar</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card" style="padding:0">
+          <div class="card-head" style="padding:22px 22px 0"><div><h3>❓ Consultas sin respuesta</h3>
+            <div class="sub">{{ chatbot_stats.total }} consultas recibidas, {{ chatbot_stats.porcentaje }}% respondidas. Enseñale las que más se repiten.</div></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Consulta</th><th>Veces</th><th>Última</th><th>Acciones</th></tr></thead>
+              <tbody>
+                {% for p in chatbot_pendientes %}
+                <tr>
+                  <td>{{ p.mensaje }}</td>
+                  <td class="mono">{{ p.veces }}</td>
+                  <td>{{ p.ultima|fecha_ar }}</td>
+                  <td>
+                    <div class="row-actions">
+                      <button type="button" class="mini-btn" title="Enseñar una respuesta" data-id="{{ p.id }}" data-mensaje="{{ p.mensaje }}" onclick="usarPendiente(this)">🎓</button>
+                      <form method="POST" action="{{ url_for('chatbot_descartar', mid=p.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn danger" title="Descartar">✕</button></form>
+                    </div>
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" style="text-align:center;color:var(--text-soft);padding:20px">No hay consultas pendientes.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card" style="padding:0">
+          <div class="card-head" style="padding:22px 22px 0"><div><h3>📚 Respuestas cargadas</h3></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Pregunta</th><th>Palabras clave</th><th>Respuesta</th><th>Usos</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody>
+                {% for r in chatbot_respuestas %}
+                <tr>
+                  <td>{{ r.pregunta }}</td>
+                  <td style="font-size:12px;color:var(--text-soft)">{{ r.palabras_clave }}</td>
+                  <td style="font-size:12.5px">{{ r.respuesta[:90] }}{% if r.respuesta|length > 90 %}…{% endif %}</td>
+                  <td class="mono">{{ r.usos }}</td>
+                  <td><span class="status {{ 'entregado' if r.activa else 'cancelado' }}">{{ 'Activa' if r.activa else 'Pausada' }}</span></td>
+                  <td>
+                    <div class="row-actions">
+                      <button type="button" class="mini-btn" title="Editar" onclick='editarRespuestaBot({{ {"id": r.id, "pregunta": r.pregunta, "palabras_clave": r.palabras_clave, "respuesta": r.respuesta}|tojson }})'>✏️</button>
+                      <form method="POST" action="{{ url_for('chatbot_toggle', rid=r.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn" title="{{ 'Pausar' if r.activa else 'Activar' }}">{{ '⏸️' if r.activa else '▶️' }}</button></form>
+                      <form method="POST" action="{{ url_for('chatbot_eliminar', rid=r.id) }}" onsubmit="return confirm('¿Eliminar esta respuesta?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn danger" title="Eliminar">🗑️</button></form>
+                    </div>
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align:center;color:var(--text-soft);padding:20px">Todavía no cargaste respuestas propias.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card" style="padding:0">
+          <div class="card-head" style="padding:22px 22px 0"><div><h3> Lo que Alice aprendió sola</h3>
+            <div class="sub">Cuando un cliente reformula una pregunta que Alice no entendió, ella la anota como sinónimo. Se activa cuando 2 clientes distintos lo confirman; vos podés aprobarla antes, rechazarla o borrarla.
+            {% if chatbot_stats.valoradas %}Valoraciones: {{ chatbot_stats.utiles }}% de {{ chatbot_stats.valoradas }} respuestas le sirvieron al cliente.{% endif %}</div></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Frase</th><th>Significa</th><th>Confirmaciones</th><th>Usos</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody>
+                {% for f in chatbot_aprendido %}
+                <tr>
+                  <td>{{ f.frase }}</td>
+                  <td style="font-size:12.5px">{{ f.significado }}</td>
+                  <td class="mono">{{ f.confirmaciones }}</td>
+                  <td class="mono">{{ f.usos }}</td>
+                  <td><span class="status {{ 'entregado' if f.estado == 'activa' else ('pendiente_pago' if f.estado == 'pendiente' else 'cancelado') }}">{{ {'activa': 'En uso', 'pendiente': 'A confirmar', 'rechazada': 'Rechazada'}[f.estado] }}</span></td>
+                  <td>
+                    <div class="row-actions">
+                      {% if f.estado != 'activa' %}<form method="POST" action="{{ url_for('chatbot_aprendido_accion', aid=f.id, accion='aprobar') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn" title="Aprobar y usar">✔️</button></form>{% endif %}
+                      {% if f.estado != 'rechazada' %}<form method="POST" action="{{ url_for('chatbot_aprendido_accion', aid=f.id, accion='rechazar') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn" title="Rechazar">⏸️</button></form>{% endif %}
+                      <form method="POST" action="{{ url_for('chatbot_aprendido_accion', aid=f.id, accion='eliminar') }}" onsubmit="return confirm('¿Borrar esta frase?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn danger" title="Borrar">🗑️</button></form>
+                    </div>
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align:center;color:var(--text-soft);padding:20px">Alice todavía no aprendió frases nuevas.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="card"> No tenés permiso para ver esta sección del panel.</div>
+      {% endif %}
+      </div>
+
+      <!-- HISTORIAL DE PRECIOS -->
+      <div class="view" id="view-historial">
+      {% if puede('historial') %}
+        <div class="card" style="padding:0">
+          <div class="card-head" style="padding:22px 22px 0"><div><h3> Historial de cambios de precio</h3><div class="sub">Últimos 100 cambios registrados</div></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Producto</th><th>Precio anterior</th><th>Precio nuevo</th><th>Variación</th><th>Fecha</th></tr></thead>
+              <tbody>
+                {% for h in historial_precios %}
+                <tr>
+                  <td class="nm" style="font-weight:700">{{ h.product_name }}</td>
+                  <td class="mono">${{ h.price_old|arm }}</td>
+                  <td class="mono">${{ h.price_new|arm }}</td>
+                  <td>
+                    {% set var = ((h.price_new - h.price_old) / h.price_old * 100) if h.price_old else 0 %}
+                    <span class="status {{ 'entregado' if var < 0 else 'pendiente' }}">{{ '%+.1f'|format(var) }}%</span>
+                  </td>
+                  <td>{{ h.changed_at }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align:center;color:var(--text-soft);padding:20px">Todavía no hay cambios de precio registrados.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="card"> No tenés permiso para ver esta sección del panel.</div>
+      {% endif %}
+      </div>
+
+      <!-- BACKUPS -->
+      <div class="view" id="view-backups">
+      {% if puede('backups') %}
+        <div class="card">
+          <div class="card-head"><div><h3> Copia de seguridad de la base de datos</h3><div class="sub">Se genera una copia automática todos los días. También podés generarla manualmente cuando quieras.</div></div></div>
+          <div class="report-actions">
+            <a class="btn btn-primary" href="{{ url_for('backup_db') }}"> Descargar backup ahora</a>
+            <button type="button" class="btn btn-ghost" onclick="generarBackupAhora()"> Generar backup en el servidor</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>Backups automáticos guardados</h3><div class="sub">Se conservan los últimos 7 backups diarios.</div></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Archivo</th><th>Tamaño</th><th>Fecha</th><th></th></tr></thead>
+              <tbody id="backupsTableBody">
+                <tr><td colspan="4" style="text-align:center;color:var(--text-soft);padding:20px">Cargando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="card"> No tenés permiso para ver esta sección del panel.</div>
+      {% endif %}
+      </div>
+
+      <!-- DATOS DEL NEGOCIO -->
+      <div class="view" id="view-negocio">
+      {% if puede('negocio') %}
+
+        <div class="negocio-grid">
+          <!-- HORARIOS -->
+          <div class="card">
+            <div class="card-head"><div><h3> Horarios de atención</h3></div></div>
+            <form method="POST" id="horarioForm" action="{{ url_for('horario_agregar') }}" data-create-url="{{ url_for('horario_agregar') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="form-row"><label>Días</label><input name="dias" id="h-dias" placeholder="Ej: Lunes a Sábado" required></div>
+              <div class="form-grid">
+                <div class="form-row"><label>Hora de apertura</label><input type="time" name="hora_inicio" id="h-inicio" required></div>
+                <div class="form-row"><label>Hora de cierre</label><input type="time" name="hora_fin" id="h-fin" required></div>
+              </div>
+              <div class="modal-actions" style="justify-content:flex-start">
+                <button type="submit" class="btn btn-primary" id="horarioSubmitBtn">+ Agregar horario</button>
+                <button type="button" class="btn btn-ghost" id="horarioCancelBtn" style="display:none" onclick="cancelarEdicionNegocio('horario')">Cancelar edición</button>
+              </div>
+            </form>
+            <div class="negocio-list">
+              {% for h in horarios %}
+              <div class="negocio-item">
+                <div class="ni-info"><b>{{ h.dias }}</b><span>{{ h.hora_inicio }} a {{ h.hora_fin }}</span></div>
+                <div class="row-actions">
+                  <button class="mini-btn" title="Editar" onclick='editarHorario({{ {"id":h.id,"dias":h.dias,"hora_inicio":h.hora_inicio,"hora_fin":h.hora_fin}|tojson }})'>✏️</button>
+                  <form method="POST" action="{{ url_for('horario_eliminar', hid=h.id) }}" onsubmit="return confirm('¿Eliminar este horario?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn danger" title="Eliminar">🗑️</button></form>
+                </div>
+              </div>
+              {% else %}
+              <p style="color:var(--text-soft); font-size:13px">Sin horarios cargados todavía.</p>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- TRANSFERENCIAS -->
+          <div class="card">
+            <div class="card-head"><div><h3> Datos para transferencias</h3><div class="sub">La cuenta que ven los clientes que eligen pagar por transferencia bancaria.</div></div></div>
+            {% set tr = datos_transferencia() %}
+            {% if not tr.cargados %}<div class="flash-msg error" style="margin-bottom:12px">Todavía no cargaste tu cuenta: los clientes ven datos de ejemplo.</div>{% endif %}
+            <form method="POST" action="{{ url_for('transferencia_guardar') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="form-grid">
+                <div class="form-row"><label>Banco</label><input name="banco" value="{{ tr.banco if tr.cargados else '' }}"></div>
+                <div class="form-row"><label>Titular de la cuenta</label><input name="titular" value="{{ tr.titular if tr.cargados else '' }}"></div>
+              </div>
+              <div class="form-grid">
+                <div class="form-row"><label>CUIT del titular</label><input name="cuit" value="{{ tr.cuit if tr.cargados else '' }}"></div>
+                <div class="form-row"><label>Alias</label><input name="alias" placeholder="MI.ALIAS.MP" value="{{ tr.alias if tr.cargados else '' }}"></div>
+              </div>
+              <div class="form-row"><label>CBU (22 dígitos)</label><input name="cbu" inputmode="numeric" maxlength="26" value="{{ tr.cbu if tr.cargados else '' }}"></div>
+              <div class="modal-actions" style="justify-content:flex-start"><button type="submit" class="btn btn-primary">Guardar datos</button></div>
+            </form>
+          </div>
+
+          <!-- DIRECCIONES -->
+          <div class="card">
+            <div class="card-head"><div><h3> Direcciones / Sucursales</h3></div></div>
+            <form method="POST" id="direccionForm" action="{{ url_for('direccion_agregar') }}" data-create-url="{{ url_for('direccion_agregar') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="form-row"><label>Nombre de la sucursal</label><input name="nombre" id="d-nombre" placeholder="Ej: Casa Central" required></div>
+              <div class="form-row"><label>Dirección</label><input name="direccion" id="d-direccion" placeholder="Calle, número" required></div>
+              <div class="form-grid">
+                <div class="form-row"><label>Ciudad</label><input name="ciudad" id="d-ciudad" placeholder="Ej: 25 de Mayo"></div>
+                <div class="form-row"><label>Provincia</label><input name="provincia" id="d-provincia" placeholder="Ej: Misiones"></div>
+              </div>
+              <div class="modal-actions" style="justify-content:flex-start">
+                <button type="submit" class="btn btn-primary" id="direccionSubmitBtn">+ Agregar dirección</button>
+                <button type="button" class="btn btn-ghost" id="direccionCancelBtn" style="display:none" onclick="cancelarEdicionNegocio('direccion')">Cancelar edición</button>
+              </div>
+            </form>
+            <div class="negocio-list">
+              {% for d in direcciones %}
+              <div class="negocio-item">
+                <div class="ni-info"><b>{{ d.nombre }}</b><span>{{ d.direccion }}{% if d.ciudad %}, {{ d.ciudad }}{% endif %}{% if d.provincia %}, {{ d.provincia }}{% endif %}</span></div>
+                <div class="row-actions">
+                  <button class="mini-btn" title="Editar" onclick='editarDireccion({{ {"id":d.id,"nombre":d.nombre,"direccion":d.direccion,"ciudad":d.ciudad,"provincia":d.provincia}|tojson }})'>✏️</button>
+                  <form method="POST" action="{{ url_for('direccion_eliminar', did=d.id) }}" onsubmit="return confirm('¿Eliminar esta dirección?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn danger" title="Eliminar">🗑️</button></form>
+                </div>
+              </div>
+              {% else %}
+              <p style="color:var(--text-soft); font-size:13px">Sin direcciones cargadas todavía.</p>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- CONTACTOS -->
+          <div class="card">
+            <div class="card-head"><div><h3>📞 Teléfonos y contacto</h3></div></div>
+            <form method="POST" id="contactoForm" action="{{ url_for('contacto_agregar') }}" data-create-url="{{ url_for('contacto_agregar') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="form-grid">
+                <div class="form-row">
+                  <label>Tipo</label>
+                  <select name="tipo" id="c-tipo">
+                    <option value="Teléfono">Teléfono</option>
+                    <option value="WhatsApp">WhatsApp</option>
+                    <option value="Email">Email</option>
+                  </select>
+                </div>
+                <div class="form-row"><label>Etiqueta (opcional)</label><input name="etiqueta" id="c-etiqueta" placeholder="Ej: Ventas"></div>
+              </div>
+              <div class="form-row"><label>Número o correo</label><input name="valor" id="c-valor" placeholder="+54 9 3755 000000" required></div>
+              <div class="modal-actions" style="justify-content:flex-start">
+                <button type="submit" class="btn btn-primary" id="contactoSubmitBtn">+ Agregar contacto</button>
+                <button type="button" class="btn btn-ghost" id="contactoCancelBtn" style="display:none" onclick="cancelarEdicionNegocio('contacto')">Cancelar edición</button>
+              </div>
+            </form>
+            <div class="negocio-list">
+              {% for c in contactos %}
+              <div class="negocio-item">
+                <div class="ni-info"><b>{{ c.tipo }}{% if c.etiqueta %} · {{ c.etiqueta }}{% endif %}</b><span>{{ c.valor }}</span></div>
+                <div class="row-actions">
+                  <button class="mini-btn" title="Editar" onclick='editarContacto({{ {"id":c.id,"tipo":c.tipo,"etiqueta":c.etiqueta,"valor":c.valor}|tojson }})'>✏️</button>
+                  <form method="POST" action="{{ url_for('contacto_eliminar', cid=c.id) }}" onsubmit="return confirm('¿Eliminar este contacto?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn danger" title="Eliminar">🗑️</button></form>
+                </div>
+              </div>
+              {% else %}
+              <p style="color:var(--text-soft); font-size:13px">Sin contactos cargados todavía.</p>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- REDES SOCIALES -->
+          <div class="card">
+            <div class="card-head"><div><h3> Redes sociales</h3></div></div>
+            <form method="POST" id="redForm" action="{{ url_for('red_agregar') }}" data-create-url="{{ url_for('red_agregar') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="form-row">
+                <label>Plataforma</label>
+                <select name="plataforma" id="r-plataforma">
+                  <option value="Facebook">Facebook</option>
+                  <option value="Instagram">Instagram</option>
+                  <option value="WhatsApp">WhatsApp</option>
+                  <option value="TikTok">TikTok</option>
+                  <option value="X">X (Twitter)</option>
+                  <option value="YouTube">YouTube</option>
+                </select>
+              </div>
+              <div class="form-row"><label>URL</label><input type="url" name="url" id="r-url" placeholder="https://instagram.com/tu_super" required></div>
+              <div class="modal-actions" style="justify-content:flex-start">
+                <button type="submit" class="btn btn-primary" id="redSubmitBtn">+ Agregar red</button>
+                <button type="button" class="btn btn-ghost" id="redCancelBtn" style="display:none" onclick="cancelarEdicionNegocio('red')">Cancelar edición</button>
+              </div>
+            </form>
+            <div class="negocio-list">
+              {% for r in redes %}
+              <div class="negocio-item">
+                <div class="ni-info"><b>{{ r.plataforma }}</b><span>{{ r.url }}</span></div>
+                <div class="row-actions">
+                  <button class="mini-btn" title="Editar" onclick='editarRed({{ {"id":r.id,"plataforma":r.plataforma,"url":r.url}|tojson }})'>✏️</button>
+                  <form method="POST" action="{{ url_for('red_eliminar', rid=r.id) }}" onsubmit="return confirm('¿Eliminar esta red?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn danger" title="Eliminar">🗑️</button></form>
+                </div>
+              </div>
+              {% else %}
+              <p style="color:var(--text-soft); font-size:13px">Sin redes cargadas todavía.</p>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- CONFIGURACIÓN DE ENVÍO -->
+          <div class="card">
+            <div class="card-head"><div><h3> Configuración de envío</h3></div></div>
+            <form method="POST" action="{{ url_for('configuracion_guardar') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="form-row">
+                <label>Envío gratis a partir de ($)</label>
+                <input type="number" name="envio_gratis_desde" step="100" min="0" value="{{ config_envio.envio_gratis_desde }}" required>
+              </div>
+              <div class="form-row">
+                <label>Costo de envío si no llega al mínimo ($)</label>
+                <input type="number" name="costo_envio" step="100" min="0" value="{{ config_envio.costo_envio }}" required>
+              </div>
+              <div class="modal-actions" style="justify-content:flex-start">
+                <button type="submit" class="btn btn-primary"> Guardar configuración</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- NOTIFICACIONES POR EMAIL -->
+          <div class="card">
+            <div class="card-head"><div><h3> Correo electrónico</h3><div class="sub">Se usa para enviarle la factura al cliente cuando se confirma su pago y, si cargás un email abajo, para avisarte de cada pedido nuevo</div></div></div>
+            <form method="POST" action="{{ url_for('notificaciones_guardar') }}" id="notifForm"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="form-row">
+                <label><input type="checkbox" name="smtp_activo" value="1" {{ 'checked' if config_notif.smtp_activo == '1' else '' }} style="width:auto;margin-right:6px"> Activar el envío de correos</label>
+              </div>
+              <div class="form-grid">
+                <div class="form-row"><label>Servidor SMTP</label><input name="smtp_host" placeholder="Ej: smtp.gmail.com" value="{{ config_notif.smtp_host }}"></div>
+                <div class="form-row"><label>Puerto</label><input name="smtp_puerto" type="number" value="{{ config_notif.smtp_puerto }}"></div>
+              </div>
+              <div class="form-grid">
+                <div class="form-row"><label>Usuario SMTP</label><input name="smtp_usuario" placeholder="tu_correo@gmail.com" value="{{ config_notif.smtp_usuario }}"></div>
+                <div class="form-row"><label>Contraseña SMTP</label><input name="smtp_password" type="password" placeholder="Dejar vacío para no cambiarla"></div>
+              </div>
+              <div class="form-row"><label>Email donde recibir avisos de pedidos nuevos (opcional)</label><input name="smtp_email_destino" type="email" placeholder="admin@almacendelvalle.com.ar" value="{{ config_notif.smtp_email_destino }}"></div>
+              <details class="hint" style="margin:8px 0 12px">
+                <summary style="cursor:pointer;font-weight:700">¿Cómo lo completo con Gmail? (paso a paso)</summary>
+                <ol style="margin:8px 0 0 18px;line-height:1.7">
+                  <li><b>Servidor SMTP</b> y <b>Puerto</b> no son una página para visitar: se escriben en los campos de arriba. Servidor: <code>smtp.gmail.com</code> · Puerto: <code>587</code>.</li>
+                  <li><b>Usuario SMTP</b>: tu dirección completa de Gmail (por ejemplo <code>tunegocio@gmail.com</code>).</li>
+                  <li><b>Contraseña SMTP</b>: no es la de tu Gmail. Es una "contraseña de aplicación" de 16 letras. Para crearla, en tu cuenta de Google activá la <i>verificación en dos pasos</i> (myaccount.google.com → Seguridad) y después entrá a <code>myaccount.google.com/apppasswords</code>, poné de nombre "Almacén del Valle" y copiá la clave que te muestra (se pega sin espacios).</li>
+                  <li>Marcá "Activar el envío de correos", tocá <b>Guardar</b> y después <b>Enviar prueba</b>. Si algo falla, el mensaje te dice qué.</li>
+                </ol>
+              </details>
+              <div class="modal-actions" style="justify-content:flex-start">
+                <button type="submit" class="btn btn-primary"> Guardar</button>
+                <button type="button" class="btn btn-ghost" onclick="probarNotificacion()"> Enviar prueba</button>
+                <span id="notif-msg" style="font-size:12.5px; color:var(--verde-700); display:none">✓ Correo de prueba enviado</span>
+              </div>
+            </form>
+          </div>
+        </div>
+
+      {% else %}
+        <div class="card"> No tenés permiso para ver esta sección del panel.</div>
+      {% endif %}
+      </div>
+
+      <div class="view" id="view-facturacion">
+      {% if puede('facturacion') %}
+        <div class="negocio-grid">
+          <!-- FACTURACION -->
+          <div class="card">
+            <div class="card-head"><div><h3>🧾 Facturación electrónica</h3><div class="sub">Datos del emisor que salen en las facturas. Hoy funciona en modo demostración: el CAE es simulado y las facturas llevan el aviso "sin validez fiscal".</div></div></div>
+            <form method="POST" action="{{ url_for('facturacion_guardar') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="form-grid">
+                <div class="form-row"><label>Razón social</label><input name="razon_social" value="{{ config_arca.razon_social }}"></div>
+                <div class="form-row"><label>CUIT</label><input name="cuit" inputmode="numeric" placeholder="20-12345678-9" value="{{ config_arca.cuit }}"></div>
+              </div>
+              <div class="form-row"><label>Domicilio comercial</label><input name="domicilio" value="{{ config_arca.domicilio }}"></div>
+              <div class="form-grid">
+                <div class="form-row"><label>Ingresos Brutos (N° de inscripción)</label><input name="ingresos_brutos" value="{{ config_arca.ingresos_brutos }}"></div>
+                <div class="form-row"><label>Fecha de inicio de actividades</label><input name="inicio_actividades" type="date" value="{{ config_arca.inicio_actividades }}"></div>
+              </div>
+              <div class="form-grid">
+                <div class="form-row"><label>Condición frente al IVA</label>
+                  <select name="condicion_iva">
+                    {% for clave, nombre in condiciones_facturacion.items() %}<option value="{{ clave }}" {{ 'selected' if config_arca.condicion_iva == clave else '' }}>{{ nombre }}</option>{% endfor %}
+                  </select></div>
+                <div class="form-row"><label>Punto de venta</label><input name="punto_venta" type="number" min="1" max="99999" value="{{ config_arca.punto_venta }}"></div>
+              </div>
+              <div class="form-row"><label>Modo</label>
+                <select disabled>
+                  {% for clave, nombre in modos_arca.items() %}<option>{{ nombre }}</option>{% endfor %}
+                  <option>Homologación (pendiente de conectar con ARCA)</option>
+                  <option>Producción (pendiente de conectar con ARCA)</option>
+                </select></div>
+              <p class="hint">Responsable Inscripto emite Factura A (a clientes que piden Factura A con su CUIT) y Factura B (a consumidores finales); Monotributo emite Factura C. Los cambios se aplican a las facturas nuevas.</p>
+              <div class="modal-actions" style="justify-content:flex-start"><button type="submit" class="btn btn-primary">💾 Guardar</button></div>
+            </form>
+          </div>
+        </div>
+      {% else %}
+        <div class="card"> No tenés permiso para ver esta sección del panel.</div>
+      {% endif %}
+      </div>
+
+      {% if session.get('es_dueno') %}
+      <!-- USUARIOS DEL PANEL -->
+      <div class="view" id="view-usuarios">
+        <div class="toolbar">
+          <div class="sub" style="color:var(--text-soft); font-size:13px">Dale acceso al panel a tus empleados sin compartir tu usuario personal.</div>
+          <button class="btn btn-primary" onclick="nuevoUsuario()">+ Nuevo usuario</button>
+        </div>
+
+        <div class="card" id="usuario-form-card" style="display:none">
+          <h3 id="usuarioFormTitle" style="margin-bottom:16px">Nuevo usuario</h3>
+          <form method="POST" id="usuarioForm" action="{{ url_for('agregar_usuario') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-grid">
+              <div class="form-row"><label>Nombre</label><input name="nombre" id="u-nombre" required></div>
+              <div class="form-row"><label>Apellido</label><input name="apellido" id="u-apellido" required></div>
+            </div>
+            <div class="form-grid">
+              <div class="form-row"><label>Usuario</label><input name="usuario" id="u-usuario" required></div>
+              <div class="form-row"><label>Contraseña</label><input name="password" id="u-password" placeholder="Dejar vacío para no cambiarla"></div>
+            </div>
+            <div class="form-row"><label>Email (opcional)</label><input type="email" name="email" id="u-email"></div>
+            <div class="form-row">
+              <label>Permisos — qué secciones puede usar</label>
+              <div class="roles-preset">
+                <span>Roles rápidos:</span>
+                <button type="button" class="chip-btn" onclick="aplicarRol('cajero')"> Cajero</button>
+                <button type="button" class="chip-btn" onclick="aplicarRol('repositor')"> Repositor</button>
+                <button type="button" class="chip-btn" onclick="aplicarRol('encargado')"> Encargado</button>
+                <button type="button" class="chip-btn" onclick="aplicarRol('ninguno')"> Limpiar</button>
+              </div>
+              <div class="permisos-grid">
+                {% for key, label in permisos_disponibles.items() %}
+                <label class="permiso-chk"><input type="checkbox" name="permisos" value="{{ key }}" class="u-permiso-chk"> {{ label }}</label>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="modal-actions" style="justify-content:flex-start">
+              <button type="submit" class="btn btn-primary">Guardar usuario</button>
+              <button type="button" class="btn btn-ghost" onclick="cerrarFormUsuario()">Cancelar</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Usuario</th><th>Permisos</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody>
+                {% for u in usuarios_admin %}
+                <tr>
+                  <td>
+                    <div class="nm" style="font-weight:700">{{ u.nombre }} {{ u.apellido }} {% if u.es_dueno %}<span class="status entregado" style="margin-left:6px">Dueño</span>{% endif %}</div>
+                    <div class="ct">@{{ u.usuario }}{% if u.email %} · {{ u.email }}{% endif %}</div>
+                  </td>
+                  <td style="max-width:280px">
+                    {% if u.es_dueno %}<span class="ct">Acceso total</span>{% else %}
+                    {% for perm in (u.permisos or '').split(',') if perm %}<span class="chip" style="padding:4px 10px;font-size:11px;margin:2px">{{ permisos_disponibles.get(perm, perm) }}</span>{% endfor %}
+                    {% endif %}
+                  </td>
+                  <td><span class="status {{ 'entregado' if u.activo else 'cancelado' }}">{{ 'Activo' if u.activo else 'Desactivado' }}</span></td>
+                  <td>
+                    {% if not u.es_dueno %}
+                    <div class="row-actions">
+                      <button class="mini-btn" title="Editar" onclick='editarUsuario({{ {"id":u.id,"nombre":u.nombre,"apellido":u.apellido,"usuario":u.usuario,"email":u.email,"permisos":u.permisos}|tojson }})'>✏️</button>
+                      <form method="POST" action="{{ url_for('toggle_usuario', uid=u.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn" title="{{ 'Desactivar' if u.activo else 'Activar' }}">{{ '⏸️' if u.activo else '▶️' }}</button></form>
+                      <form method="POST" action="{{ url_for('eliminar_usuario', uid=u.id) }}" onsubmit="return confirm('¿Eliminar este usuario?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mini-btn danger" title="Eliminar">🗑️</button></form>
+                    </div>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- AUDITORÍA -->
+      <div class="view" id="view-auditoria">
+        <div class="card" style="padding:0">
+          <div class="card-head" style="padding:22px 22px 0"><div><h3> Registro de auditoría</h3><div class="sub">Últimas 100 acciones realizadas en el panel</div></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Usuario</th><th>Acción</th><th>Detalle</th><th>Fecha</th></tr></thead>
+              <tbody>
+                {% for a in auditoria_log %}
+                <tr>
+                  <td style="font-weight:700">{{ a.usuario }}</td>
+                  <td>{{ a.accion }}</td>
+                  <td style="color:var(--text-soft)">{{ a.detalle or '—' }}</td>
+                  <td class="mono">{{ a.created_at }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" style="text-align:center;color:var(--text-soft);padding:20px">Todavía no hay acciones registradas.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PRODUCTO -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal modal-lg">
+    <h3 id="productModalTitle">Nuevo producto</h3>
+    <form method="POST" id="productForm" action="{{ url_for('admin_producto_agregar') }}" data-create-url="{{ url_for('admin_producto_agregar') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-grid">
+        <div class="form-row"><label>Código / SKU</label><input name="code" id="p-code" placeholder="Se genera solo si lo dejás vacío"></div>
+        <div class="form-row"><label>Nombre del producto *</label><input name="name" id="p-name" placeholder="Ej: Yerba Mate 1kg" required></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>Marca</label><input name="brand" id="p-brand" placeholder="Ej: Campo Verde"></div>
+        <div class="form-row"><label>Categoría *</label>
+          <select name="category_id" id="p-cat">
+            {% for c in categories %}<option value="{{ c.id }}">{{ c.icon }} {{ c.name }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-grid form-grid-3">
+        <div class="form-row"><label>Precio ($) *</label><input name="price" id="p-price" type="number" step="0.01" required></div>
+        <div class="form-row"><label>Precio anterior (oferta)</label><input name="old_price" id="p-old-price" type="number" step="0.01"></div>
+        <div class="form-row"><label>Unidad de medida</label>
+          <select name="unidad" id="p-unidad">
+            <option value="unidad">Unidad</option>
+            <option value="kg">Kilogramo (kg)</option>
+            <option value="gr">Gramo (gr)</option>
+            <option value="litro">Litro</option>
+            <option value="ml">Mililitro (ml)</option>
+            <option value="paquete">Paquete</option>
+            <option value="docena">Docena</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>Stock inicial</label><input name="stock" id="p-stock" type="number" min="0" value="0" required></div>
+        <div class="form-row" id="p-active-row" style="display:none">
+          <label>Estado</label>
+          <select name="active" id="p-active">
+            <option value="1">Activo</option>
+            <option value="">Inactivo</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label><input type="checkbox" name="destacado" id="p-destacado" value="1" style="width:auto;margin-right:6px"> ⭐ Marcar como producto destacado</label>
+      </div>
+      <div class="form-row">
+        <label>Descripción</label>
+        <textarea name="description" id="p-description" rows="2" placeholder="Descripción breve del producto..."></textarea>
+      </div>
+      <div class="form-row">
+        <label>Información adicional (una por línea)</label>
+        <textarea name="info_adicional" id="p-info" rows="3" placeholder="Sin TACC&#10;Apto vegano&#10;Origen: Misiones"></textarea>
+      </div>
+      <div class="form-row">
+        <label>URL de la imagen</label>
+        <input type="url" name="image_url" id="p-image-url" placeholder="https://ejemplo.com/imagen.jpg">
+        <span class="hint">Pegá el enlace a una imagen ya alojada en internet. Si lo dejás vacío, se usa un ícono de categoría.</span>
+        <div class="img-preview-wrap" id="p-image-preview-wrap" style="display:none">
+          <img id="p-image-preview" class="img-preview" alt="Vista previa">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('productModal')">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar producto</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL IMPORTAR PRODUCTOS -->
+<div class="modal-overlay" id="importarModal">
+  <div class="modal">
+    <h3>📥 Importar productos desde Excel (.xlsx)</h3>
+    <p class="hint" style="display:block; margin-bottom:16px">
+      Subí un archivo <b>.xlsx</b> con las columnas: code, name, category_id, brand, unidad, price,
+      old_price, stock, description, info_adicional, image, destacado, active.
+      Tip: exportá primero tu catálogo actual para usarlo como plantilla.
+    </p>
+    <form method="POST" action="{{ url_for('productos_importar') }}" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-row"><label>Archivo Excel (.xlsx)</label><input type="file" name="archivo" accept=".xlsx" required></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('importarModal')">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Importar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL CATEGORIA -->
+<div class="modal-overlay" id="categoryModal">
+  <div class="modal">
+    <h3>Nueva categoría</h3>
+    <form method="POST" action="{{ url_for('admin_categoria_agregar') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-row"><label>Nombre</label><input name="name" required></div>
+      <div class="form-row"><label>Ícono (emoji)</label><input name="icon" placeholder="🥦" required></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('categoryModal')">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar categoría</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<form id="estadoForm" method="POST" style="display:none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+
+<!-- PREVIEW "VER COMO CLIENTE" -->
+<div class="preview-overlay" id="previewOverlay">
+  <div class="preview-modal">
+    <div class="preview-head">
+      <b>👁️ Vista previa — así ve la tienda un cliente</b>
+      <div class="preview-actions">
+        <button class="icon-btn" onclick="togglePreviewTheme()" title="Cambiar tema en la vista previa">🌗</button>
+        <a class="icon-btn" href="{{ url_for('index') }}" target="_blank" title="Abrir en pestaña nueva">↗️</a>
+        <button class="icon-btn" onclick="cerrarPreviewTienda()" title="Cerrar">✕</button>
+      </div>
+    </div>
+    <iframe id="previewIframe" src="about:blank"></iframe>
+  </div>
+</div>
+
+<script>
+const chartData = {{ charts|tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/csrf.js', v=version_estaticos()) }}"></script>
+<script src="{{ url_for('static', filename='js/admin.js', v=version_estaticos()) }}"></script>
+</body>
+</html>

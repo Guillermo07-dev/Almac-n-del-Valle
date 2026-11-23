@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Nueva contraseña — Almacén del Valle{% endblock %}
+{% block content %}
+<section class="section auth-section">
+  <div class="container auth-container">
+    <div class="auth-card">
+      {% if valido %}
+      <div class="eyebrow">Recuperar acceso</div>
+      <h2>Elegí tu nueva contraseña</h2>
+      <p class="sub">Tiene que tener al menos 6 caracteres.</p>
+      <form method="POST" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field"><label>Contraseña nueva</label><input type="password" name="password" required minlength="6" autocomplete="new-password"></div>
+        <div class="field"><label>Repetí la contraseña</label><input type="password" name="password2" required minlength="6" autocomplete="new-password"></div>
+        <button class="btn-pill btn-primary" type="submit" style="width:100%;justify-content:center">Guardar contraseña</button>
+      </form>
+      {% else %}
+      <div class="eyebrow">Enlace no válido</div>
+      <h2>Este enlace venció</h2>
+      <p class="sub">Los enlaces de recuperación sirven una sola vez y duran una hora. Pedí uno nuevo y listo.</p>
+      <a class="btn-pill btn-primary" href="{{ url_for('recuperar_clave') }}" style="width:100%;justify-content:center">Pedir otro enlace</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

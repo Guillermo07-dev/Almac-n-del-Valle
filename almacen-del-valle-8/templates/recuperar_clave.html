@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Recuperar contraseña — Almacén del Valle{% endblock %}
+{% block content %}
+<section class="section auth-section">
+  <div class="container auth-container">
+    <div class="auth-card">
+      <div class="eyebrow">Recuperar acceso</div>
+      <h2>¿Olvidaste tu contraseña?</h2>
+      <p class="sub">Escribí el correo con el que te registraste y te enviamos un enlace para elegir una nueva.</p>
+      <form method="POST" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field">
+          <label>Correo electrónico</label>
+          <input type="email" name="email" placeholder="tu@correo.com" autocomplete="email" required>
+        </div>
+        <button class="btn-pill btn-primary" type="submit" style="width:100%;justify-content:center">Enviarme el enlace</button>
+      </form>
+      <p class="auth-alt"><a href="{{ url_for('login') }}">Volver a ingresar</a></p>
+    </div>
+  </div>
+</section>
+{% endblock %}

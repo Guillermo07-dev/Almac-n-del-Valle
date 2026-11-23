@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<title>{% block title %}Almacén del Valle{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v=version_estaticos()) }}">
+{% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<div class="topbar">
+  <div class="container">
+    <div class="topbar-msg"> <b>Semana del ahorro</b> — hasta 30% off en productos frescos</div>
+    <div class="topbar-msg"> <b>Envío gratis</b> en 25 de Mayo desde $50.000</div>
+    {% if horarios_negocio %}
+    <div class="topbar-msg hide-mobile"> {{ horarios_negocio[0].dias }} {{ horarios_negocio[0].hora_inicio }} a {{ horarios_negocio[0].hora_fin }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<header class="main">
+  <div class="header-inner container">
+    <button class="mobile-toggle" onclick="toggleMegaMenu()">☰</button>
+    <a class="logo" href="{{ url_for('index') }}">
+      <div class="logo-mark">AV</div>
+      <div class="logo-text">Almacén del Valle<span>Supermercado online</span></div>
+    </a>
+    <div class="searchbar">
+      🔎 <input type="text" id="searchInput" placeholder="Buscar yerba, leche, fideos..." autocomplete="off">
+      <div class="search-suggestions" id="searchSuggestions"></div>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="toggleTheme()" title="Modo claro/oscuro" id="themeBtn">🌙</button>
+      {% if session.get('cliente_id') %}
+      <div class="user-menu">
+        <button class="icon-btn" title="Mi cuenta"></button>
+        <div class="user-dropdown">
+          <div class="ud-name">Hola, {{ session.get('cliente_nombre') }}</div>
+          <a href="{{ url_for('favoritos') }}"> Mis favoritos</a>
+          <a href="{{ url_for('mis_pedidos') }}">Mis pedidos</a>
+          <a href="{{ url_for('logout') }}">Cerrar sesión</a>
+        </div>
+      </div>
+      {% else %}
+      <a class="login-link" href="{{ url_for('login') }}"> Ingresar</a>
+      {% endif %}
+      <button class="icon-btn" onclick="openCart()" title="Carrito">
+        🧺<span class="badge" id="cartCount">{{ cart_count|default(0) }}</span>
+      </button>
+    </div>
+  </div>
+
+  <nav class="catnav">
+    <div class="container catnav-inner">
+      <button class="catnav-trigger" id="megaMenuBtn" onclick="toggleMegaMenu()">
+        <span class="cnt-ico">☰</span> Categorías <span class="cnt-arrow">▾</span>
+      </button>
+      <a href="#productos">Ofertas</a>
+      <a href="#categorias">Todas las categorías</a>
+      <a href="{{ url_for('mis_pedidos') }}">Mis pedidos</a>
+    </div>
+  </nav>
+
+  <div class="mega-menu" id="megaMenu">
+    <div class="mega-menu-inner">
+      <div class="mega-col-cats" id="megaCats">
+        {% for c in categories %}
+        <div class="mega-cat-item" data-cat="{{ c.id }}" onmouseenter="showSubcats('{{ c.id }}')" onclick="setCat('{{ c.id }}'); toggleMegaMenu(false)">
+          <span class="mci-ico" style="background:{{ c.color }}">{{ c.icon }}</span>
+          <span class="mci-name">{{ c.name }}</span>
+          <span class="mci-arrow">›</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="mega-col-subcats" id="megaSubcats">
+        <div class="mega-subcats-empty">Pasá el cursor sobre una categoría para ver sus secciones</div>
+      </div>
+    </div>
+  </div>
+  <div class="mega-overlay" id="megaOverlay" onclick="toggleMegaMenu(false)"></div>
+</header>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="container" style="padding-top:16px">
+    {% for category, message in messages %}
+    <div class="flash-msg {{ category }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+<main>
+  {% block content %}{% endblock %}
+</main>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <h5>Almacén del Valle</h5>
+        <p>{% if direcciones_negocio %}{{ direcciones_negocio[0].direccion }}, {{ direcciones_negocio[0].ciudad }} — {{ direcciones_negocio[0].provincia }}.<br>{% endif %}El súper de tu barrio, con lo fresco de siempre.</p>
+        <div class="footer-social">
+          {% for r in redes_negocio %}
+          {% set iconos = {'Facebook':'','Instagram':'','WhatsApp':'','TikTok':'','X':'','YouTube':''} %}
+          <a href="{{ r.url }}" title="{{ r.plataforma }}" target="_blank">{{ iconos.get(r.plataforma, '🔗') }}</a>
+          {% endfor %}
+        </div>
+      </div>
+      <div>
+        <h5>Servicio al Cliente</h5>
+        <ul>
+          <li><a href="#">Preguntas frecuentes</a></li>
+          <li><a href="{{ url_for('mis_pedidos') if session.get('cliente_id') else url_for('login') }}">Mi cuenta</a></li>
+          <li><a href="#">Términos y condiciones</a></li>
+          <li><a href="#">Botón de Arrepentimiento</a></li>
+          <li><a href="#">Trabajá con nosotros</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Categorías</h5>
+        <ul>
+          {% for c in (categories|default([]))[:6] %}
+          <li><a href="#" onclick="setCat('{{ c.id }}'); return false;">{{ c.name }}</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div>
+        <h5>Contacto</h5>
+        <ul>
+          {% for h in horarios_negocio %}
+          <li>{{ h.dias }}: {{ h.hora_inicio }} a {{ h.hora_fin }}</li>
+          {% endfor %}
+          {% for c in contactos_negocio %}
+          {% set iconos_c = {'Teléfono':'','WhatsApp':'','Email':''} %}
+          <li>{{ iconos_c.get(c.tipo, '') }} {{ c.valor }}{% if c.etiqueta %} ({{ c.etiqueta }}){% endif %}</li>
+          {% endfor %}
+          {% for d in direcciones_negocio %}
+          <li> {{ d.nombre }}: {{ d.direccion }}{% if d.ciudad %}, {{ d.ciudad }}{% endif %}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Almacén del Valle. Todos los derechos reservados.</span>
+      <div class="pay-icons">
+        <span>Mercado Pago</span><span>VISA</span><span>MASTER</span><span>NARANJA</span><span>MAESTRO</span><span>Rapipago</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<div class="overlay" id="overlay" onclick="closeCart()"></div>
+<div class="cart-drawer" id="cartDrawer">
+  <div class="cart-head">
+    <h3>Tu canasta</h3>
+    <button class="cart-close" onclick="closeCart()">✕</button>
+  </div>
+  <div class="cart-items" id="cartItems"></div>
+  <div class="cart-foot" id="cartFoot"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<button class="chat-fab" id="chatFab" type="button" onclick="toggleChat()" aria-label="Hablar con Alice, la asistente virtual">💬</button>
+<div class="chat-panel" id="chatPanel" hidden role="dialog" aria-label="Alice, asistente virtual">
+  <div class="chat-head">
+    <div><b>Alice</b><span>Asistente virtual · Almacén del Valle</span></div>
+    <button class="chat-close" type="button" onclick="toggleChat()" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="chat-msgs" id="chatMsgs" aria-live="polite"></div>
+  <div class="chat-chips" id="chatChips"></div>
+  <form class="chat-form" id="chatForm" autocomplete="off">
+    <input id="chatInput" type="text" maxlength="300" placeholder="Escribí tu consulta..." aria-label="Tu consulta">
+    <button type="submit">Enviar</button>
+  </form>
+</div>
+
+<script src="{{ url_for('static', filename='js/csrf.js', v=version_estaticos()) }}"></script>
+<script src="{{ url_for('static', filename='js/main.js', v=version_estaticos()) }}"></script>
+<script src="{{ url_for('static', filename='js/chatbot.js', v=version_estaticos()) }}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>
